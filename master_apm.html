@@ -1,0 +1,454 @@
+<div class="apm-master-container p-4 bg-white text-slate-800 min-h-screen">
+  <!-- ヘッダー -->
+  <div class="flex justify-between items-center mb-6 border-b-4 border-slate-900 pb-3">
+    <div class="flex items-center gap-3">
+      <div class="bg-slate-900 text-white p-2 rounded shadow-lg">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      </div>
+      <div>
+        <h2 class="text-2xl font-black tracking-tighter uppercase">APM Master Management</h2>
+        <p class="text-xs font-bold text-slate-500 tracking-widest">LIXIL KURISAVA | EXTRUSION DEPT.</p>
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <input type="file" id="csv-import-input" accept=".csv" class="hidden" onchange="handleCsvFile(this)">
+      <button onclick="document.getElementById('csv-import-input').click()" class="bg-blue-600 text-white text-[10px] px-3 py-1 rounded font-black hover:bg-blue-700 transition-all flex items-center gap-1 shadow-md">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        CSV IMPORT
+      </button>
+      <div id="connection-status" class="flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-[10px] font-black border border-green-200">
+        <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+        BQ CONNECTED
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-12 gap-6">
+    <!-- 左サイド：原材料管理 -->
+    <div class="col-span-12 lg:col-span-5 space-y-6">
+      <section class="border-2 border-slate-400 rounded-xl overflow-hidden shadow-md flex flex-col h-[750px] bg-slate-50">
+        <div class="bg-slate-100 p-3 border-b-2 border-slate-400 flex justify-between items-center shrink-0">
+          <h3 class="font-black text-slate-700 flex items-center gap-2 text-sm uppercase">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+            1. Material Master
+          </h3>
+          <div class="flex gap-2">
+            <button id="toggle-bulk-edit" onclick="toggleBulkEdit()" class="bg-white border-2 border-slate-900 text-slate-900 text-[10px] px-2 py-1 rounded font-black hover:bg-slate-900 hover:text-white transition-all">一括単価変更</button>
+            <button onclick="openMaterialModal()" class="bg-slate-900 text-white text-[10px] px-2 py-1 rounded font-bold hover:bg-orange-600 transition-colors shadow-sm">+ 新規登録</button>
+          </div>
+        </div>
+        
+        <div class="p-2 bg-white border-b border-slate-200 shrink-0">
+          <div class="relative">
+            <input type="text" id="mat-search" placeholder="材料名・カテゴリで検索..." oninput="filterMaterials()" 
+                   class="w-full pl-8 pr-4 py-2 border-2 border-slate-200 rounded-md text-xs font-bold focus:border-slate-900 outline-none shadow-inner">
+            <svg class="absolute left-2.5 top-2.5 text-slate-400" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto bg-white" id="material-list-container"></div>
+
+        <div id="bulk-save-bar" class="hidden p-4 bg-orange-50 border-t-2 border-orange-200 flex justify-between items-center shrink-0">
+          <span class="text-[10px] font-black text-orange-800 uppercase italic animate-pulse">Bulk Price Editing Mode...</span>
+          <div class="flex gap-2">
+            <button onclick="toggleBulkEdit()" class="px-3 py-1 bg-white border-2 border-slate-300 rounded font-black text-[10px]">CANCEL</button>
+            <button id="bulk-save-btn" onclick="saveAllMaterialPrices()" class="px-4 py-1 bg-orange-600 text-white rounded font-black text-[10px] shadow-md hover:bg-orange-700">SAVE ALL</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 右サイド：配合レシピ -->
+    <div class="col-span-12 lg:col-span-7">
+      <section class="border-2 border-slate-400 rounded-xl overflow-hidden shadow-lg bg-slate-50 h-[750px] flex flex-col">
+        <div class="bg-slate-900 text-white p-3 flex justify-between items-center shrink-0 font-black italic">
+          <h3 class="flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+            2. Slot Formula Config (1-10)
+          </h3>
+          <div id="save-indicator" class="hidden text-orange-400 text-[10px] uppercase">● Unsaved Changes</div>
+        </div>
+        <div class="flex flex-col md:flex-row flex-1 overflow-hidden">
+          <!-- スロット選択 -->
+          <div class="w-full md:w-24 bg-slate-200 p-2 space-y-1 overflow-y-auto border-r-2 border-slate-300 shrink-0" id="slot-selector"></div>
+          
+          <!-- 詳細エディタ -->
+          <div class="flex-1 p-6 relative overflow-y-auto bg-slate-50">
+            <div id="editor-placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 p-10 text-center italic font-black text-xl">
+              SELECT A SLOT TO EDIT
+            </div>
+            
+            <div id="editor-content" class="hidden space-y-6">
+              <div class="grid grid-cols-2 gap-4 bg-white p-4 rounded-lg border-2 border-slate-200 shadow-sm">
+                <div>
+                  <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">配合名称 (Formula Name)</label>
+                  <input type="text" id="edit-formula-name" oninput="markAsDirty()" class="w-full border-2 border-slate-300 p-2 font-black text-lg focus:border-orange-500 outline-none rounded shadow-inner">
+                </div>
+                <div>
+                  <label class="block text-[10px] font-black text-slate-500 uppercase mb-1">目標合計重量 (Target Weight kg)</label>
+                  <input type="number" id="edit-std-total-weight" step="0.1" oninput="checkWeightBalance(); markAsDirty();" class="w-full border-2 border-slate-300 p-2 font-black text-lg text-right focus:border-orange-500 outline-none rounded shadow-inner">
+                </div>
+              </div>
+
+              <div class="bg-white border-2 border-slate-400 rounded-lg overflow-hidden shadow-md">
+                <table class="w-full text-sm border-collapse">
+                  <thead><tr class="bg-slate-800 text-white text-[10px] font-black uppercase tracking-widest"><th class="p-2 text-left">Material</th><th class="p-2 text-right w-32">Weight(kg)</th><th class="p-2 w-10"></th></tr></thead>
+                  <tbody id="recipe-items-body"></tbody>
+                </table>
+                <button onclick="addRecipeRow()" class="w-full py-3 bg-slate-50 border-t-2 border-dashed border-slate-300 text-slate-500 hover:bg-orange-50 hover:text-orange-600 font-black transition-all flex items-center justify-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 5v14M5 12h14"/></svg>
+                  ADD MATERIAL ROW
+                </button>
+              </div>
+
+              <!-- フッターアクション -->
+              <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-900 text-white p-4 rounded-xl shadow-xl border-t-4 border-orange-500 sticky bottom-0">
+                <div id="weight-alert" class="flex items-center gap-2 text-orange-400 font-black text-xs hidden">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                  WEIGHT MISMATCH
+                </div>
+                <div class="flex items-center gap-6 ml-auto">
+                  <div class="text-right">
+                    <p class="text-[10px] font-black text-slate-400 uppercase leading-none mb-1 text-xs italic tracking-tighter">Current Total</p>
+                    <div class="font-black italic flex items-baseline gap-1 leading-none">
+                      <span id="current-sum-weight" class="text-3xl tracking-tighter">0.00</span>
+                      <span class="text-sm">kg</span>
+                    </div>
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <button onclick="saveFormula()" id="save-formula-btn" class="bg-orange-600 hover:bg-orange-500 text-white px-8 py-2 rounded font-black shadow-lg transition-transform active:scale-95">スロット保存</button>
+                    <div class="flex gap-2">
+                      <button onclick="copyCurrentFormula()" class="text-[9px] font-black text-slate-400 hover:text-white uppercase flex items-center gap-1 border border-slate-700 px-2 py-1 rounded">
+                        Copy to Other
+                      </button>
+                      <button onclick="deleteFormulaAction()" class="text-[9px] font-black text-red-400 hover:text-red-300 uppercase flex items-center gap-1 border border-red-900/50 px-2 py-1 rounded">
+                        Clear Slot
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- モーダル類 -->
+  <div id="material-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl border-4 border-slate-900 w-full max-w-md shadow-2xl overflow-hidden">
+      <div class="bg-slate-900 text-white p-4 flex justify-between items-center font-black italic tracking-widest">
+        <span>MATERIAL EDITOR</span>
+        <button onclick="closeMaterialModal()" class="text-slate-400 hover:text-white text-xl">✕</button>
+      </div>
+      <div class="p-6 space-y-5">
+        <input type="hidden" id="modal-material-id">
+        <div class="flex justify-between items-end">
+          <div class="flex-1">
+            <label class="block text-xs font-black text-slate-500 mb-1">名称</label>
+            <input type="text" id="modal-material-name" class="w-full border-2 border-slate-300 p-3 rounded font-bold focus:border-orange-500 outline-none shadow-inner">
+          </div>
+          <button id="modal-delete-btn" onclick="deleteMaterialAction()" class="ml-2 text-red-500 hover:bg-red-50 p-2 rounded hidden transition-colors" title="削除">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+          </button>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div><label class="block text-xs font-black text-slate-500 mb-1 uppercase tracking-tighter text-[9px]">カテゴリ (Category)</label><select id="modal-category" class="w-full border-2 border-slate-300 p-3 rounded font-bold outline-none focus:border-orange-500 bg-white"><option value="未分類">未分類</option><option value="コンパウンド">コンパウンド</option><option value="アクリル">アクリル</option><option value="軟質">軟質</option><option value="滑剤">滑剤</option><option value="その他">その他</option></select></div>
+          <div><label class="block text-xs font-black text-slate-500 mb-1 uppercase tracking-tighter text-[9px]">単位 (Unit)</label><input type="text" id="modal-unit" value="kg" class="w-full border-2 border-slate-300 p-3 rounded font-bold outline-none focus:border-orange-500 shadow-inner"></div>
+        </div>
+        <div><label class="block text-xs font-black text-slate-500 mb-1">標準単価 (Standard Unit Price JPY)</label><input type="number" id="modal-unit-price" class="w-full border-2 border-slate-300 p-3 rounded font-black text-right focus:border-orange-500 text-lg shadow-inner"></div>
+      </div>
+      <div class="bg-slate-50 p-4 flex justify-end gap-3 border-t-2 border-slate-100">
+        <button onclick="closeMaterialModal()" class="px-6 py-2 rounded font-black text-slate-500 hover:bg-slate-200 transition-colors">CANCEL</button>
+        <button id="modal-save-btn" onclick="saveMaterial()" class="px-8 py-2 bg-slate-900 text-white rounded font-black shadow-lg hover:bg-orange-600 transition-all">SAVE MASTER</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="copy-modal" class="fixed inset-0 bg-slate-900/80 hidden flex items-center justify-center z-[60] p-4">
+    <div class="bg-white rounded-2xl border-4 border-slate-900 w-full max-w-sm p-6 shadow-2xl">
+      <h3 class="text-xl font-black mb-4 flex items-center gap-2"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> COPY TO SLOT</h3>
+      <div class="grid grid-cols-5 gap-2" id="copy-slot-grid"></div>
+      <div class="mt-6 flex justify-end"><button onclick="document.getElementById('copy-modal').classList.add('hidden')" class="font-black text-slate-400 hover:text-slate-600 uppercase text-xs tracking-widest">CLOSE</button></div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .apm-master-container { font-family: 'Inter', 'Noto Sans JP', sans-serif; }
+  .slot-btn { position: relative; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+  .slot-btn.active { background-color: #0f172a !important; color: white !important; border-color: #f97316 !important; transform: translateX(6px); box-shadow: -6px 0 0 #f97316; }
+  .slot-btn.has-data::after { content: ''; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; background-color: #22c55e; border-radius: 50%; border: 1px solid white; }
+  .category-header { cursor: pointer; user-select: none; transition: all 0.2s; }
+  .category-header:hover { background-color: #f1f5f9; color: #0f172a; }
+  .bulk-input { border: 2px solid #e2e8f0; transition: all 0.2s; }
+  .bulk-input:focus { border-color: #f97316; outline: none; background-color: #fff7ed; box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1); }
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+</style>
+
+<script>
+  let masterData = { materials: [], formulas: {} };
+  let currentSlotId = null;
+  let isDirty = false;
+  let isBulkEditMode = false;
+  let collapsedCategories = new Set();
+
+  window.addEventListener('load', () => { initSlots(); refreshData(); });
+
+  function initSlots() {
+    const selector = document.getElementById('slot-selector');
+    selector.innerHTML = '';
+    for (let i = 1; i <= 10; i++) {
+      const btn = document.createElement('button');
+      btn.className = 'slot-btn w-full py-4 text-center border-2 border-slate-300 rounded-lg font-black bg-white text-lg hover:border-slate-400 transition-all';
+      btn.id = `slot-${i}`; btn.innerText = i; btn.onclick = () => selectSlot(i);
+      selector.appendChild(btn);
+    }
+  }
+
+  function refreshData() {
+    const status = document.getElementById('connection-status');
+    status.innerHTML = 'Connecting...';
+    google.script.run
+      .withSuccessHandler(data => {
+        masterData = data; renderMaterials(); updateSlotStates();
+        if (currentSlotId) selectSlot(currentSlotId);
+        status.innerHTML = 'BQ CONNECTED';
+      })
+      .withFailureHandler(err => {
+        status.innerHTML = 'BQ ERROR';
+        console.error(err);
+      })
+      .getMasterData();
+  }
+
+  function renderMaterials() {
+    const container = document.getElementById('material-list-container');
+    const searchTerm = document.getElementById('mat-search').value.toLowerCase();
+    
+    // 1. 重複排除ロジック: 名前ごとに最新の updated_at のものだけを抽出
+    const uniqueMap = new Map();
+    masterData.materials.forEach(m => {
+      const existing = uniqueMap.get(m.material_name);
+      // 日付文字列を比較（ISO形式なら文字列比較可能、またはDateオブジェクトへ変換）
+      if (!existing || new Date(m.updated_at) > new Date(existing.updated_at)) {
+        uniqueMap.set(m.material_name, m);
+      }
+    });
+    const deduplicatedMaterials = Array.from(uniqueMap.values());
+
+    const filtered = deduplicatedMaterials.filter(m => m.material_name.toLowerCase().includes(searchTerm) || (m.category && m.category.toLowerCase().includes(searchTerm)));
+    const groups = filtered.reduce((acc, m) => { const cat = m.category || '未分類'; if (!acc[cat]) acc[cat] = []; acc[cat].push(m); return acc; }, {});
+
+    let html = '';
+    Object.keys(groups).sort().forEach(cat => {
+      const isCollapsed = collapsedCategories.has(cat);
+      html += `
+        <div class="border-b border-slate-200">
+          <div onclick="toggleCategory('${cat}')" class="category-header bg-slate-50 p-2 flex justify-between items-center text-[10px] font-black text-slate-500 uppercase tracking-widest">
+            <span class="flex items-center gap-1">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" style="transform: ${isCollapsed ? 'rotate(-90deg)' : 'none'}" class="transition-transform"><path d="m6 9 6 6 6-6"/></svg>
+              ${cat} (${groups[cat].length})
+            </span>
+          </div>
+          <div class="${isCollapsed ? 'hidden' : ''}">
+            <table class="w-full text-left border-collapse">
+              <tbody class="text-sm font-bold">
+                ${groups[cat].map(m => isBulkEditMode ? `
+                  <tr class="border-b border-slate-100"><td class="p-3 w-1/2 text-xs text-slate-600">${m.material_name}</td>
+                  <td class="p-3 text-right"><div class="relative"><span class="absolute left-2 top-1 text-[8px] text-slate-400">¥</span><input type="number" step="0.1" value="${m.unit_price}" data-id="${m.material_id}" class="bulk-input w-24 p-1 pl-4 text-right font-black rounded text-xs"></div></td></tr>
+                ` : `
+                  <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors group">
+                    <td class="p-3"><div class="text-slate-800">${m.material_name}</div><div class="text-[8px] text-slate-400 font-mono tracking-tighter uppercase leading-none mt-0.5">${m.material_id}</div></td>
+                    <td class="p-3 text-right text-xs">¥${parseFloat(m.unit_price).toLocaleString()}</td>
+                    <td class="p-3 text-center w-10"><button onclick='openMaterialModal(${JSON.stringify(m)})' class="text-slate-300 hover:text-blue-600 transition-colors">✎</button></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>`;
+    });
+    container.innerHTML = html || '<div class="p-10 text-center italic font-black text-slate-300 uppercase tracking-widest">No matching materials</div>';
+  }
+
+  function handleCsvFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const text = e.target.result;
+      const lines = text.split(/\r?\n/);
+      const materialMap = {};
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',');
+        if (cols.length < 2) continue;
+        const name = cols[0].trim();
+        if (!name) continue;
+        const price = parseFloat(cols[1]) || 0;
+        const existing = masterData.materials.find(m => m.material_name === name);
+        materialMap[name] = {
+          material_id: existing ? existing.material_id : '',
+          material_name: name,
+          unit_price: price,
+          category: existing ? existing.category : '未分類',
+          unit: existing ? existing.unit : 'kg'
+        };
+      }
+      const materials = Object.values(materialMap);
+      if (materials.length > 0 && confirm(`${materials.length}件をインポートしますか？\n(同じ名前の材料は現在の単価に更新されます)`)) {
+        google.script.run
+          .withSuccessHandler(() => { alert('インポート完了'); refreshData(); })
+          .withFailureHandler(err => alert('エラー: ' + err.message))
+          .importMaterials(materials);
+      }
+      input.value = '';
+    };
+    reader.readAsText(file, 'Shift_JIS');
+  }
+
+  function saveMaterial() {
+    const payload = { material_id: document.getElementById('modal-material-id').value, material_name: document.getElementById('modal-material-name').value, category: document.getElementById('modal-category').value, unit_price: parseFloat(document.getElementById('modal-unit-price').value), unit: document.getElementById('modal-unit').value };
+    if (!payload.material_name) return alert('名称を入力してください');
+    google.script.run.withSuccessHandler(() => { closeMaterialModal(); refreshData(); }).saveMaterial(payload);
+  }
+
+  function deleteMaterialAction() {
+    const id = document.getElementById('modal-material-id').value;
+    if (id && confirm('この材料を完全に削除しますか？\n(配合レシピに使用中の場合は削除できません)')) {
+      google.script.run.withSuccessHandler(() => { closeMaterialModal(); refreshData(); }).withFailureHandler(err => alert(err.message)).deleteMaterial(id);
+    }
+  }
+
+  async function saveAllMaterialPrices() {
+    const updates = [];
+    document.querySelectorAll('.bulk-input').forEach(input => {
+      const id = input.getAttribute('data-id');
+      const price = parseFloat(input.value);
+      const orig = masterData.materials.find(m => m.material_id === id);
+      if (orig && Math.abs(orig.unit_price - price) > 0.01) updates.push({ ...orig, unit_price: price });
+    });
+    if (updates.length === 0) return toggleBulkEdit();
+    if (confirm(`${updates.length}件の単価を一括更新します。よろしいですか？`)) {
+      const btn = document.getElementById('bulk-save-btn');
+      btn.innerText = 'SAVING...'; btn.disabled = true;
+      for (const data of updates) await new Promise(res => google.script.run.withSuccessHandler(res).saveMaterial(data));
+      btn.innerText = 'SAVE ALL'; btn.disabled = false;
+      toggleBulkEdit(); refreshData();
+    }
+  }
+
+  function selectSlot(id) {
+    if (isDirty && !confirm('未保存の変更を破棄しますか？')) return;
+    currentSlotId = id; isDirty = false;
+    document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`slot-${id}`).classList.add('active');
+    document.getElementById('editor-placeholder').classList.add('hidden');
+    document.getElementById('editor-content').classList.remove('hidden');
+    document.getElementById('save-indicator').classList.add('hidden');
+    const f = masterData.formulas[id] || { formula_name: '', std_total_weight: 0, recipe: [] };
+    document.getElementById('edit-formula-name').value = f.formula_name || '';
+    document.getElementById('edit-std-total-weight').value = f.std_total_weight || 0;
+    const tbody = document.getElementById('recipe-items-body');
+    tbody.innerHTML = ''; f.recipe?.forEach(row => addRecipeRow(row));
+    checkWeightBalance();
+  }
+
+  function addRecipeRow(data = { material_id: '', std_weight: 0 }) {
+    const tbody = document.getElementById('recipe-items-body');
+    const tr = document.createElement('tr');
+    
+    // フィルタリング（重複排除）済みの材料リストを作成
+    const uniqueMap = new Map();
+    masterData.materials.forEach(m => {
+      const existing = uniqueMap.get(m.material_name);
+      if (!existing || new Date(m.updated_at) > new Date(existing.updated_at)) {
+        uniqueMap.set(m.material_name, m);
+      }
+    });
+    const deduplicated = Array.from(uniqueMap.values());
+
+    const opts = deduplicated.map(m => `<option value="${m.material_id}" ${m.material_id == data.material_id ? 'selected' : ''}>${m.material_name}</option>`).join('');
+    tr.innerHTML = `<td class="p-2"><select onchange="markAsDirty()" class="recipe-mat-select w-full border border-slate-200 p-2 rounded bg-white text-xs font-bold outline-none focus:border-slate-900">${opts}</select></td>
+      <td class="p-2"><input type="number" step="0.1" value="${data.std_weight}" oninput="checkWeightBalance(); markAsDirty();" class="recipe-weight-input w-full border border-slate-200 p-2 text-right font-black outline-none focus:border-slate-900 text-lg"></td>
+      <td class="p-2 text-center"><button onclick="this.closest('tr').remove(); checkWeightBalance(); markAsDirty();" class="text-slate-300 hover:text-red-500 transition-colors">✕</button></td>`;
+    tbody.appendChild(tr);
+  }
+
+  function saveFormula() {
+    const recipe = [];
+    document.querySelectorAll('#recipe-items-body tr').forEach(tr => {
+      const matId = tr.querySelector('.recipe-mat-select').value;
+      const weight = tr.querySelector('.recipe-weight-input').value;
+      if (matId) recipe.push({ material_id: matId, std_weight: parseFloat(weight) });
+    });
+    const payload = { formula_id: currentSlotId, formula_name: document.getElementById('edit-formula-name').value, std_total_weight: parseFloat(document.getElementById('edit-std-total-weight').value), recipe: recipe };
+    const btn = document.getElementById('save-formula-btn');
+    btn.innerText = 'SAVING...'; btn.disabled = true;
+    google.script.run.withSuccessHandler(() => { 
+      isDirty = false; refreshData(); btn.innerText = 'スロット保存'; btn.disabled = false; alert('配合を保存しました'); 
+    }).saveFormula(payload);
+  }
+
+  function deleteFormulaAction() {
+    if (confirm(`スロット ${currentSlotId} の設定を完全にクリアしますか？`)) {
+      google.script.run.withSuccessHandler(() => {
+        isDirty = false; refreshData(); alert('スロットを初期化しました');
+      }).deleteFormula(currentSlotId);
+    }
+  }
+
+  function toggleBulkEdit() { isBulkEditMode = !isBulkEditMode; document.getElementById('bulk-save-bar').classList.toggle('hidden'); renderMaterials(); }
+  function toggleCategory(cat) { if (collapsedCategories.has(cat)) collapsedCategories.delete(cat); else collapsedCategories.add(cat); renderMaterials(); }
+  function filterMaterials() { renderMaterials(); }
+  function checkWeightBalance() {
+    const target = parseFloat(document.getElementById('edit-std-total-weight').value) || 0;
+    let sum = 0; document.querySelectorAll('.recipe-weight-input').forEach(i => sum += parseFloat(i.value) || 0);
+    const sumEl = document.getElementById('current-sum-weight');
+    sumEl.innerText = sum.toFixed(2);
+    const isError = Math.abs(target - sum) >= 0.01;
+    sumEl.classList.toggle('text-red-500', isError);
+    document.getElementById('weight-alert').classList.toggle('hidden', !isError);
+  }
+  function markAsDirty() { isDirty = true; document.getElementById('save-indicator').classList.remove('hidden'); }
+  function updateSlotStates() { for (let i = 1; i <= 10; i++) { document.getElementById(`slot-${i}`).classList.toggle('has-data', !!masterData.formulas[i]?.formula_name); } }
+  function closeMaterialModal() { document.getElementById('material-modal').classList.add('hidden'); }
+  function openMaterialModal(m = null) {
+    document.getElementById('material-modal').classList.remove('hidden');
+    const del = document.getElementById('modal-delete-btn');
+    if (m) {
+      document.getElementById('modal-material-id').value = m.material_id;
+      document.getElementById('modal-material-name').value = m.material_name;
+      document.getElementById('modal-category').value = m.category || '未分類';
+      document.getElementById('modal-unit-price').value = m.unit_price;
+      document.getElementById('modal-unit').value = m.unit || 'kg';
+      del.classList.remove('hidden');
+    } else {
+      document.getElementById('modal-material-id').value = '';
+      document.getElementById('modal-material-name').value = '';
+      document.getElementById('modal-unit-price').value = '';
+      del.classList.add('hidden');
+    }
+  }
+  function copyCurrentFormula() {
+    const grid = document.getElementById('copy-slot-grid'); grid.innerHTML = '';
+    for (let i = 1; i <= 10; i++) {
+      if (i == currentSlotId) continue;
+      const btn = document.createElement('button'); btn.className = 'p-3 border-2 rounded font-black hover:bg-orange-600 hover:text-white transition-all';
+      btn.innerText = i; btn.onclick = () => {
+        if (confirm(`${i}番へこの内容をコピーします。上書きされますがよろしいですか？`)) {
+          const recipe = []; document.querySelectorAll('#recipe-items-body tr').forEach(tr => {
+            recipe.push({ material_id: tr.querySelector('.recipe-mat-select').value, std_weight: parseFloat(tr.querySelector('.recipe-weight-input').value) });
+          });
+          google.script.run.withSuccessHandler(refreshData).saveFormula({ formula_id: i, formula_name: document.getElementById('edit-formula-name').value, std_total_weight: parseFloat(document.getElementById('edit-std-total-weight').value), recipe: recipe });
+          document.getElementById('copy-modal').classList.add('hidden');
+        }
+      };
+      grid.appendChild(btn);
+    }
+    document.getElementById('copy-modal').classList.remove('hidden');
+  }
+</script>

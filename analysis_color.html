@@ -1,0 +1,319 @@
+<div class="analysis-color-module">
+  <!-- 検索フィルタ -->
+  <div class="bg-white p-4 rounded-2xl shadow-sm border-2 border-slate-400 mb-4">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="bg-indigo-700 text-white p-2 rounded-lg shadow-md">
+        <i class="fa-solid fa-chart-line text-lg"></i>
+      </div>
+      <h2 class="text-xl font-black text-slate-900">色調実績分析 (推移・異常検知)</h2>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+      <div>
+        <label class="block text-xs font-black text-slate-900 mb-1">開始日</label>
+        <input type="date" id="ana-start-date" class="w-full border-2 border-slate-400 rounded-xl text-sm font-black p-2 text-slate-900 focus:border-indigo-600 transition">
+      </div>
+      <div>
+        <label class="block text-xs font-black text-slate-900 mb-1">終了日</label>
+        <input type="date" id="ana-end-date" class="w-full border-2 border-slate-400 rounded-xl text-sm font-black p-2 text-slate-900 focus:border-indigo-600 transition">
+      </div>
+      <div>
+        <label class="block text-xs font-black text-slate-900 mb-1">対象号機</label>
+        <select id="ana-machine" class="w-full border-2 border-slate-400 rounded-xl text-sm font-black p-2 text-indigo-800 focus:border-indigo-600 transition">
+          <option value="1号機">1号機</option>
+          <option value="2号機">2号機</option>
+          <option value="3号機">3号機</option>
+          <option value="4号機">4号機</option>
+          <option value="5号機">5号機</option>
+          <option value="6号機">6号機</option>
+          <option value="7号機">7号機</option>
+          <option value="8A">8A</option>
+          <option value="8B">8B</option>
+          <option value="9号機">9号機</option>
+          <option value="12号機">12号機</option>
+        </select>
+      </div>
+      <button onclick="ColorAna.update()" class="py-2.5 bg-slate-900 text-white rounded-xl font-black text-sm hover:bg-indigo-700 transition-all shadow-md active:scale-95">
+        <i class="fa-solid fa-magnifying-glass me-1"></i> 分析実行
+      </button>
+      <button id="download-csv-btn" onclick="ColorAna.downloadCSV()" class="py-2.5 bg-emerald-700 text-white rounded-xl font-black text-sm hover:bg-emerald-800 transition-all shadow-md active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+        <i class="fa-solid fa-file-csv me-1"></i> CSV保存
+      </button>
+    </div>
+  </div>
+
+  <!-- 表示項目切り替え -->
+  <div class="bg-slate-100 p-3 rounded-xl border-x-2 border-t-2 border-slate-400 flex flex-wrap gap-4 items-center">
+    <span class="text-[11px] font-black text-slate-900 uppercase flex items-center gap-1">
+      <i class="fa-solid fa-eye"></i> 表示設定:
+    </span>
+    <label class="flex items-center gap-2 cursor-pointer select-none">
+      <input type="checkbox" id="chk-actual" checked onchange="ColorAna.toggleDatasets()" class="w-4 h-4 rounded border-slate-400 text-slate-900 focus:ring-0">
+      <span class="text-xs font-black text-slate-800">実績(b値)</span>
+    </label>
+    <label class="flex items-center gap-2 cursor-pointer select-none">
+      <input type="checkbox" id="chk-limits" checked onchange="ColorAna.toggleDatasets()" class="w-4 h-4 rounded border-slate-400 text-red-600 focus:ring-0">
+      <span class="text-xs font-black text-slate-800">管理限界</span>
+    </label>
+    <label class="flex items-center gap-2 cursor-pointer select-none">
+      <input type="checkbox" id="chk-temp" checked onchange="ColorAna.toggleDatasets()" class="w-4 h-4 rounded border-slate-400 text-orange-600 focus:ring-0">
+      <span class="text-xs font-black text-slate-800">気温</span>
+    </label>
+    <label class="flex items-center gap-2 cursor-pointer select-none">
+      <input type="checkbox" id="chk-humid" checked onchange="ColorAna.toggleDatasets()" class="w-4 h-4 rounded border-slate-400 text-blue-600 focus:ring-0">
+      <span class="text-xs font-black text-slate-800">湿度</span>
+    </label>
+  </div>
+
+  <!-- グラフエリア -->
+  <div class="bg-white p-6 rounded-b-2xl shadow-sm border-2 border-slate-400 mb-6 relative">
+    <div style="height: 450px; position: relative;">
+      <canvas id="colorTrendChart"></canvas>
+    </div>
+    <!-- 簡易通知用トースト -->
+    <div id="toast-msg" class="hidden absolute top-4 right-4 bg-emerald-600 text-white px-4 py-2 rounded-lg font-black text-sm shadow-xl z-50 animate-bounce">
+      <i class="fa-solid fa-check-circle me-1"></i> CSVを作成しました
+    </div>
+  </div>
+
+  <!-- 異常値リスト -->
+  <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-400 overflow-hidden mb-10">
+    <div class="bg-red-100 p-4 border-b-2 border-slate-400 flex items-center gap-2">
+      <i class="fa-solid fa-triangle-exclamation text-red-600 text-lg"></i>
+      <h3 class="text-sm font-black text-red-900 uppercase">管理規定値 外れリスト</h3>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse">
+        <thead>
+          <tr class="bg-slate-200 border-b-2 border-slate-400 text-slate-900">
+            <th class="p-3 text-[11px] font-black w-32 text-center">日付</th>
+            <th class="p-3 text-[11px] font-black w-20 text-center">直/時間</th>
+            <th class="p-3 text-[11px] font-black w-24 text-center">実績(b値)</th>
+            <th class="p-3 text-[11px] font-black w-32 text-center">規定範囲</th>
+            <th class="p-3 text-[11px] font-black text-center">状態</th>
+          </tr>
+        </thead>
+        <tbody id="out-of-spec-body">
+          <tr>
+            <td colspan="5" class="p-10 text-center text-slate-500 font-bold italic">
+              分析を実行すると、異常値がここにリストアップされます。
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+  /**
+   * ColorAnalysis Namespace 
+   * 他のスクリプト（index_extrusionなど）との衝突を避けるため、すべての関数をここにまとめます。
+   */
+  const ColorAna = {
+    chart: null,
+    currentData: [],
+
+    init() {
+      const end = new Date();
+      const start = new Date();
+      start.setDate(start.getDate() - 14);
+      document.getElementById('ana-start-date').value = start.toLocaleDateString('sv-SE');
+      document.getElementById('ana-end-date').value = end.toLocaleDateString('sv-SE');
+    },
+
+    update() {
+      const startDate = document.getElementById('ana-start-date').value;
+      const endDate = document.getElementById('ana-end-date').value;
+      const machine = document.getElementById('ana-machine').value;
+
+      if (!startDate || !endDate) return;
+
+      this.showLoader('分析データを集計中...');
+
+      google.script.run
+        .withSuccessHandler(data => {
+          this.hideLoader();
+          if (!data || data.length === 0) {
+            this.currentData = [];
+            document.getElementById('download-csv-btn').disabled = true;
+            alert("該当するデータがありませんでした。");
+            return;
+          }
+          this.currentData = data;
+          document.getElementById('download-csv-btn').disabled = false;
+          this.render(data);
+        })
+        .withFailureHandler(err => {
+          this.hideLoader();
+          alert("データ取得失敗: " + err);
+        })
+        .getColorAnalysisData(startDate, endDate, machine);
+    },
+
+    downloadCSV() {
+      if (!this.currentData || this.currentData.length === 0) {
+        alert("保存するデータが見つかりません。");
+        return;
+      }
+
+      const btn = document.getElementById('download-csv-btn');
+      const originalContent = btn.innerHTML;
+      
+      try {
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin me-1"></i> 作成中`;
+
+        const machineName = document.getElementById('ana-machine').value;
+        const startDate = document.getElementById('ana-start-date').value;
+        const endDate = document.getElementById('ana-end-date').value;
+        const fileName = `色調分析_${machineName}_${startDate}_${endDate}.csv`;
+
+        const headers = ["日付", "直", "時間", "実績(b値)", "上限", "下限", "気温(℃)", "湿度(%)"];
+        const csvRows = [headers.join(",")];
+
+        for (const d of this.currentData) {
+          const row = [
+            d.EXTDate || "",
+            d.EXTShift || "",
+            d.EXTTime || "",
+            (d.ActualValue !== null && d.ActualValue !== undefined) ? d.ActualValue : "",
+            (d.UpperLimit !== null && d.UpperLimit !== undefined) ? d.UpperLimit : "",
+            (d.LowerLimit !== null && d.LowerLimit !== undefined) ? d.LowerLimit : "",
+            (d.Temp !== null && d.Temp !== undefined) ? d.Temp : "",
+            (d.Humid !== null && d.Humid !== undefined) ? d.Humid : ""
+          ];
+          csvRows.push(row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(","));
+        }
+
+        const csvString = csvRows.join("\r\n");
+        const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+        const blob = new Blob([bom, csvString], { type: "text/csv;charset=utf-8" });
+
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        a.style.display = "none";
+        a.target = "_blank";
+
+        document.body.appendChild(a);
+        a.click();
+        
+        setTimeout(() => {
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+          btn.disabled = false;
+          btn.innerHTML = originalContent;
+          this.showToast();
+        }, 500);
+
+      } catch (err) {
+        alert("CSV作成エラー: " + err.message);
+        btn.disabled = false;
+        btn.innerHTML = originalContent;
+      }
+    },
+
+    showToast() {
+      const toast = document.getElementById('toast-msg');
+      if(toast) {
+        toast.classList.remove('hidden');
+        setTimeout(() => toast.classList.add('hidden'), 3000);
+      }
+    },
+
+    toggleDatasets() {
+      if (!this.chart) return;
+      const showActual = document.getElementById('chk-actual').checked;
+      const showLimits = document.getElementById('chk-limits').checked;
+      const showTemp = document.getElementById('chk-temp').checked;
+      const showHumid = document.getElementById('chk-humid').checked;
+      
+      this.chart.setDatasetVisibility(0, showActual);
+      this.chart.setDatasetVisibility(1, showLimits);
+      this.chart.setDatasetVisibility(2, showLimits);
+      this.chart.setDatasetVisibility(3, showTemp);
+      this.chart.setDatasetVisibility(4, showHumid);
+      this.chart.update();
+    },
+
+    render(data) {
+      const labels = data.map(d => `${d.EXTDate.substring(5)} ${d.EXTTime}`);
+      const actuals = data.map(d => d.ActualValue !== null ? parseFloat(d.ActualValue) : null);
+      const uppers = data.map(d => d.UpperLimit);
+      const lowers = data.map(d => d.LowerLimit);
+      const temps = data.map(d => d.Temp);
+      const humids = data.map(d => d.Humid);
+
+      const ctx = document.getElementById('colorTrendChart').getContext('2d');
+      if (this.chart) this.chart.destroy();
+
+      this.chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: '実績(b値)', data: actuals, borderColor: '#000', borderWidth: 3, yAxisID: 'y', pointRadius: 3, tension: 0.1 },
+            { label: '上限', data: uppers, borderColor: '#ef4444', borderDash: [6, 4], borderWidth: 2, pointRadius: 0, yAxisID: 'y', stepped: true },
+            { label: '下限', data: lowers, borderColor: '#ef4444', borderDash: [6, 4], borderWidth: 2, pointRadius: 0, yAxisID: 'y', stepped: true },
+            { label: '気温(℃)', data: temps, borderColor: '#ea580c', borderWidth: 2, pointRadius: 0, yAxisID: 'y1', tension: 0.3 },
+            { label: '湿度(%)', data: humids, borderColor: '#2563eb', borderWidth: 2, pointRadius: 0, yAxisID: 'y1', tension: 0.3 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            y: { min: 0, max: 4, position: 'left', title: { display: true, text: 'b値', font: { weight: 'black' } } },
+            y1: { min: 0, max: 100, position: 'right', title: { display: true, text: '気温/湿度', font: { weight: 'black' } }, grid: { drawOnChartArea: false } }
+          },
+          plugins: { legend: { display: false } }
+        }
+      });
+      this.toggleDatasets();
+
+      const outBody = document.getElementById('out-of-spec-body');
+      const outOfSpecData = data.filter(d => {
+        if (d.ActualValue === null) return false;
+        const val = parseFloat(d.ActualValue);
+        return val > d.UpperLimit || val < d.LowerLimit;
+      });
+
+      if (!outOfSpecData || outOfSpecData.length === 0) {
+        outBody.innerHTML = `<tr><td colspan="5" class="p-10 text-center text-green-700 font-black">規定外のデータはありません。</td></tr>`;
+      } else {
+        outBody.innerHTML = outOfSpecData.map(d => {
+          const val = parseFloat(d.ActualValue);
+          const isHigh = val > d.UpperLimit;
+          return `
+            <tr class="border-b border-slate-300 hover:bg-red-50 transition">
+              <td class="p-3 text-xs font-black text-center">${d.EXTDate}</td>
+              <td class="p-3 text-xs font-bold text-center">${d.EXTShift}直 / ${d.EXTTime}</td>
+              <td class="p-3 text-sm font-black text-red-600 text-center">${val.toFixed(2)}</td>
+              <td class="p-3 text-[10px] text-center">${d.LowerLimit} 〜 ${d.UpperLimit}</td>
+              <td class="p-3 text-center"><span class="px-3 py-1 rounded-full text-[10px] font-black ${isHigh ? 'bg-red-600 text-white' : 'bg-blue-700 text-white'}">${isHigh ? '上限超え' : '下限割れ'}</span></td>
+            </tr>
+          `;
+        }).join('');
+      }
+    },
+
+    showLoader(text) {
+      const l = document.getElementById('loader');
+      const t = document.getElementById('loader-text');
+      if(l && t) { t.innerText = text; l.classList.remove('hidden'); }
+    },
+
+    hideLoader() {
+      const l = document.getElementById('loader');
+      if(l) l.classList.add('hidden');
+    }
+  };
+
+  // 初期化
+  document.addEventListener('DOMContentLoaded', () => {
+    ColorAna.init();
+  });
+</script>

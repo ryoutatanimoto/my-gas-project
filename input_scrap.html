@@ -1,0 +1,448 @@
+<div class="container-fluid p-0 pellet-input-module">
+  <!-- ヘッダー・設定エリア -->
+  <div class="bg-white p-4 rounded-3 shadow-sm mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h3 class="text-lg font-bold border-l-4 border-orange-500 ps-3 mb-0">粉砕・ペレタイザー実績入力</h3>
+      <div id="pellet-status-badge" class="badge bg-slate-100 text-slate-500 fw-normal px-3 py-2 rounded-pill">
+        <i class="fa-solid fa-database me-1"></i> 読込前
+      </div>
+    </div>
+    
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label small fw-bold text-slate-600">作業日</label>
+        <input type="date" id="target-date" onchange="resetPelletView()" class="form-control form-control-lg shadow-sm">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label small fw-bold text-slate-600">直（シフト）</label>
+        <select id="target-shift" onchange="resetPelletView()" class="form-select form-select-lg shadow-sm">
+          <option value="">選択してください</option>
+          <option value="1直">1直</option>
+          <option value="2直">2直</option>
+          <option value="3直">3直</option>
+        </select>
+      </div>
+      <div class="col-md-4 d-flex align-items-end">
+        <button onclick="loadPelletData()" id="load-btn" class="btn btn-primary w-100 py-2 fw-bold shadow-sm">
+          <i class="fa-solid fa-cloud-arrow-down me-1"></i>読込
+        </button>
+      </div>
+      
+    </div>
+  </div>
+
+  <!-- 入力フォームエリア (データ読込後に表示) -->
+  <div id="pellet-input-card" class="bg-white p-4 rounded-3 shadow-sm d-none animate-fade-in">
+    <div class="row g-4">
+      
+      <!-- 1. 粉砕実績セクション -->
+      <div class="col-md-6">
+        <h4 class="text-base font-bold border-l-4 border-blue-500 ps-3 mb-3 text-slate-700">1. 粉砕実績 (Scrap Crushing)</h4>
+        <div class="card border-slate-200 shadow-sm rounded-3 p-3 bg-slate-50/50">
+          
+          <!-- ホワイト粉砕 -->
+          <div class="mb-4">
+            <h5 class="small fw-bold text-slate-600 mb-2">
+              <i class="fa-solid fa-circle text-slate-300 me-2"></i>ホワイト粉砕 (White Scrap)
+            </h5>
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label small text-slate-500 mb-1">粉砕重量</label>
+                <div class="input-group shadow-sm">
+                  <input type="number" step="0.1" id="white_scrap_weight" class="form-control form-control-lg text-end fw-bold bg-slate-100 text-slate-400" placeholder="入力不可" disabled>
+                  <span class="input-group-text bg-light text-slate-400 small fw-bold">kg</span>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="d-flex justify-content-between align-items-baseline mb-1">
+                  <label class="form-label small text-slate-500 m-0">稼働時間</label>
+                  <span id="white-max-hint" class="text-slate-400 fw-bold" style="font-size: 10px;"></span>
+                </div>
+                <div class="input-group shadow-sm">
+                  <input type="number" id="white_scrap_time" class="form-control form-control-lg text-end fw-bold text-slate-700 op-time-input" placeholder="0">
+                  <span class="input-group-text bg-light text-slate-500 small fw-bold">分</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- カラー粉砕 -->
+          <div class="border-top border-slate-200 pt-3">
+            <h5 class="small fw-bold text-orange-600 mb-2">
+              <i class="fa-solid fa-circle text-orange-400 me-2"></i>カラー粉砕 (Color Scrap)
+            </h5>
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label small text-slate-500 mb-1">粉砕重量</label>
+                <div class="input-group shadow-sm">
+                  <input type="number" step="0.1" id="color_scrap_weight" class="form-control form-control-lg text-end fw-bold text-slate-700" placeholder="0.0">
+                  <span class="input-group-text bg-light text-slate-500 small fw-bold">kg</span>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="d-flex justify-content-between align-items-baseline mb-1">
+                  <label class="form-label small text-slate-500 m-0">稼働時間</label>
+                  <span id="color-max-hint" class="text-slate-400 fw-bold" style="font-size: 10px;"></span>
+                </div>
+                <div class="input-group shadow-sm">
+                  <input type="number" id="color_scrap_time" class="form-control form-control-lg text-end fw-bold text-slate-700 op-time-input" placeholder="0">
+                  <span class="input-group-text bg-light text-slate-500 small fw-bold">分</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+
+      <!-- 2. ペレタイザー実績セクション -->
+      <div class="col-md-6 d-flex flex-column justify-content-between">
+        <div>
+          <h4 class="text-base font-bold border-l-4 border-purple-500 ps-3 mb-3 text-slate-700">2. ペレタイザー実績 (Pelletizer)</h4>
+          <div class="card border-purple-200 bg-purple-50/20 shadow-sm rounded-3 p-3">
+            
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-purple-700 mb-1">生産ペレット種類</label>
+              <select id="pellet_type" class="form-select form-select-lg shadow-sm fw-bold text-slate-700">
+                <option value="カラーペレット">カラーペレット</option>
+                <option value="ホワイト表層ペレット">ホワイト表層ペレット</option>
+              </select>
+            </div>
+            
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label small fw-bold text-purple-700 mb-1">生産重量</label>
+                <div class="input-group shadow-sm">
+                  <input type="number" step="0.1" id="pellet_weight" class="form-control form-control-lg text-end fw-bold text-purple-700" placeholder="0.0">
+                  <span class="input-group-text bg-white text-purple-600 small fw-bold">kg</span>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="d-flex justify-content-between align-items-baseline mb-1">
+                  <label class="form-label small fw-bold text-purple-700 m-0">稼働時間</label>
+                  <span id="pellet-max-hint" class="text-purple-400 fw-bold" style="font-size: 10px;"></span>
+                </div>
+                <div class="input-group shadow-sm">
+                  <input type="number" id="pellet_time" class="form-control form-control-lg text-end fw-bold text-purple-700 op-time-input" placeholder="0">
+                  <span class="input-group-text bg-white text-purple-600 small fw-bold">分</span>
+                </div>
+              </div>
+            </div>
+            
+          </div>
+        </div>
+
+        <!-- アクションボタンエリア -->
+        <div class="mt-4">
+          <button onclick="savePelletData()" id="save-btn" class="btn btn-lg w-100 fw-bold text-white shadow-md py-3 transition-all hover:scale-98 active:scale-95 flex items-center justify-center gap-2" style="background-color: #0f172a; border-color: #0f172a;">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            LDP(BigQuery)の実績データを更新
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style>
+  .pellet-input-module {
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  /* Bootstrap標準に重ねる微調整 */
+  .form-control:focus, .form-select:focus {
+    border-color: #fb923c !important;
+    box-shadow: 0 0 0 0.25rem rgba(251, 146, 60, 0.25) !important;
+  }
+</style>
+
+<script>
+  // 各シフトの最大稼働時間設定
+  const SHIFT_LIMITS = {
+    "1直": 510,
+    "2直": 515,
+    "3直": 415
+  };
+
+  // 初期設定
+  window.addEventListener('load', () => {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('target-date').value = today;
+    setupEnterKeyFocus(); // Enterキーのフォーカス遷移を設定
+    setupMaxLimitValidation(); // リアルタイムバリデーションイベントの設定
+  });
+
+  // 日付や直を変更した時に一度フォームを閉じて、読込バッジをリセットする
+  function resetPelletView() {
+    const card = document.getElementById('pellet-input-card');
+    const badge = document.getElementById('pellet-status-badge');
+    
+    card.classList.add('d-none');
+    badge.className = "badge bg-slate-100 text-slate-500 fw-normal px-3 py-2 rounded-pill";
+    badge.innerHTML = '<i class="fa-solid fa-database me-1"></i> 読込前';
+  }
+
+  // Enterキーでのフォーカス移動設定
+  function setupEnterKeyFocus() {
+    const elementIds = [
+      'white_scrap_time',
+      'color_scrap_weight',
+      'color_scrap_time',
+      'pellet_type',
+      'pellet_weight',
+      'pellet_time'
+    ];
+
+    elementIds.forEach((id, index) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          
+          const nextIndex = index + 1;
+          if (nextIndex < elementIds.length) {
+            const nextEl = document.getElementById(elementIds[nextIndex]);
+            if (nextEl) {
+              nextEl.focus();
+              if (nextEl.tagName === 'INPUT') {
+                nextEl.select();
+              }
+            }
+          } else {
+            const saveBtn = document.getElementById('save-btn');
+            if (saveBtn) {
+              saveBtn.focus();
+            }
+          }
+        }
+      });
+    });
+  }
+
+  // リアルタイム上限チェックの設定
+  function setupMaxLimitValidation() {
+    const timeInputs = document.querySelectorAll('.op-time-input');
+    timeInputs.forEach(input => {
+      input.addEventListener('input', () => {
+        validateOpTimeInput(input);
+      });
+    });
+  }
+
+  // 特定の稼働時間入力欄に対するバリデーション
+  function validateOpTimeInput(input) {
+    const shift = document.getElementById('target-shift').value;
+    const limit = SHIFT_LIMITS[shift];
+    if (!limit) return true;
+
+    const val = parseInt(input.value);
+    if (!isNaN(val) && val > limit) {
+      input.classList.add('is-invalid');
+      return false;
+    } else {
+      input.classList.remove('is-invalid');
+      return true;
+    }
+  }
+
+  // 現在の直に合わせてヒントテキストとmax属性を更新
+  function updateMaxHintsAndAttributes(shift) {
+    const limit = SHIFT_LIMITS[shift] || null;
+    const inputs = document.querySelectorAll('.op-time-input');
+
+    const whiteHint = document.getElementById('white-max-hint');
+    const colorHint = document.getElementById('color-max-hint');
+    const pelletHint = document.getElementById('pellet-max-hint');
+
+    if (limit) {
+      whiteHint.innerText = `(最大 ${limit}分)`;
+      colorHint.innerText = `(最大 ${limit}分)`;
+      pelletHint.innerText = `(最大 ${limit}分)`;
+
+      inputs.forEach(input => {
+        input.setAttribute('max', limit);
+        validateOpTimeInput(input); // 既に値が入っている場合の初期チェック
+      });
+    } else {
+      whiteHint.innerText = "";
+      colorHint.innerText = "";
+      pelletHint.innerText = "";
+      inputs.forEach(input => {
+        input.removeAttribute('max');
+        input.classList.remove('is-invalid');
+      });
+    }
+  }
+
+  // データの読込処理
+  function loadPelletData() {
+    const date = document.getElementById('target-date').value;
+    const shift = document.getElementById('target-shift').value;
+    const badge = document.getElementById('pellet-status-badge');
+    const loadBtn = document.getElementById('load-btn');
+    const card = document.getElementById('pellet-input-card');
+
+    if (!date) return alert("作業日を指定してください。");
+    if (!shift) return alert("直（シフト）を選択してください。");
+
+    // ローディング中
+    loadBtn.disabled = true;
+    const originalBtnText = loadBtn.innerHTML;
+    loadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>読込中...';
+    
+    badge.className = "badge bg-warning-subtle text-warning fw-normal px-3 py-2 rounded-pill border border-warning-subtle";
+    badge.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> 照会中...';
+
+    // 直ごとのヒント表示と制限値の動的更新
+    updateMaxHintsAndAttributes(shift);
+
+    google.script.run
+      .withSuccessHandler(data => {
+        loadBtn.disabled = false;
+        loadBtn.innerHTML = originalBtnText;
+        card.classList.remove('d-none');
+
+        if (data) {
+          document.getElementById('white_scrap_weight').value = "";
+          document.getElementById('white_scrap_time').value = data.white_scrap_time !== null ? data.white_scrap_time : "";
+          document.getElementById('color_scrap_weight').value = data.color_scrap_weight !== null ? data.color_scrap_weight : "";
+          document.getElementById('color_scrap_time').value = data.color_scrap_time !== null ? data.color_scrap_time : "";
+          document.getElementById('pellet_weight').value = data.pellet_weight !== null ? data.pellet_weight : "";
+          document.getElementById('pellet_time').value = data.pellet_time !== null ? data.pellet_time : "";
+          document.getElementById('pellet_type').value = data.pellet_type || "カラーペレット";
+          
+          badge.className = "badge bg-success-subtle text-success fw-normal px-3 py-2 rounded-pill border border-success-subtle";
+          badge.innerHTML = '<i class="fa-solid fa-circle-check me-1"></i> 読込完了 (登録あり)';
+          
+          // 値読み込み後に再度超過チェックをかける
+          document.querySelectorAll('.op-time-input').forEach(input => validateOpTimeInput(input));
+
+          // 最初の入力項目にフォーカス
+          setTimeout(() => {
+            const firstInput = document.getElementById('white_scrap_time');
+            if (firstInput) { firstInput.focus(); firstInput.select(); }
+          }, 100);
+        } else {
+          resetFields();
+          badge.className = "badge bg-info-subtle text-info fw-normal px-3 py-2 rounded-pill border border-info-subtle";
+          badge.innerHTML = '<i class="fa-solid fa-circle-plus me-1"></i> 新規実績 (登録なし)';
+          
+          // 最初の入力項目にフォーカス
+          setTimeout(() => {
+            const firstInput = document.getElementById('white_scrap_time');
+            if (firstInput) { firstInput.focus(); }
+          }, 100);
+        }
+      })
+      .withFailureHandler(err => {
+        loadBtn.disabled = false;
+        loadBtn.innerHTML = originalBtnText;
+        badge.className = "badge bg-danger-subtle text-danger fw-normal px-3 py-2 rounded-pill border border-danger-subtle";
+        badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation me-1"></i> 読込エラー';
+        alert("データの読み込みに失敗しました: " + err);
+      })
+      .getPelletData(date, shift);
+  }
+
+  // 入力のクリア
+  function resetFields() {
+    ['white_scrap_weight', 'white_scrap_time', 'color_scrap_weight', 'color_scrap_time', 'pellet_weight', 'pellet_time'].forEach(id => {
+      document.getElementById(id).value = "";
+    });
+    document.getElementById('pellet_type').value = "カラーペレット";
+  }
+
+  // 保存処理
+  function savePelletData() {
+    const btn = document.getElementById('save-btn');
+    const badge = document.getElementById('pellet-status-badge');
+    const date = document.getElementById('target-date').value;
+    const shift = document.getElementById('target-shift').value;
+    
+    // 入力データのパース (空欄はnullとしてGAS側に送る)
+    const getVal = (id, isFloat) => {
+      const v = document.getElementById(id).value;
+      if (v === "") return null;
+      return isFloat ? parseFloat(v) : parseInt(v);
+    };
+
+    const whiteScrapTime = getVal('white_scrap_time', false);
+    const colorScrapTime = getVal('color_scrap_time', false);
+    const pelletTime = getVal('pellet_time', false);
+
+    // 稼働時間の上限値ガードチェック
+    const limit = SHIFT_LIMITS[shift];
+    if (limit) {
+      const timeCheckList = [
+        { label: "ホワイト粉砕 稼働時間", value: whiteScrapTime },
+        { label: "カラー粉砕 稼働時間", value: colorScrapTime },
+        { label: "ペレタイザー 稼働時間", value: pelletTime }
+      ];
+
+      for (const item of timeCheckList) {
+        if (item.value !== null && item.value > limit) {
+          alert(`【入力エラー】\n${shift}の稼働時間の上限は ${limit} 分です。\n\n「${item.label}」に上限を超える値 (${item.value} 分) が入力されています。修正してください。`);
+          const inputEl = document.getElementById(
+            item.label.includes("ホワイト") ? "white_scrap_time" :
+            item.label.includes("カラー") ? "color_scrap_time" : "pellet_time"
+          );
+          if (inputEl) {
+            inputEl.focus();
+            inputEl.select();
+          }
+          return;
+        }
+      }
+    }
+
+    const data = {
+      work_date: date,
+      shift: shift,
+      white_scrap_weight: null, // ホワイト粉砕重量は常時入力不可のため null で確定
+      white_scrap_time: whiteScrapTime,
+      color_scrap_weight: getVal('color_scrap_weight', true),
+      color_scrap_time: colorScrapTime,
+      pellet_weight: getVal('pellet_weight', true),
+      pellet_time: pelletTime,
+      pellet_type: document.getElementById('pellet_type').value
+    };
+
+    if (!data.work_date || !data.shift) {
+      alert("日付と直を選択した状態で保存を実行してください。");
+      return;
+    }
+
+    if (!confirm("BigQueryの実績データを更新しますか？\n空欄は「null (未入力)」として保存されます。")) return;
+
+    btn.disabled = true;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> 更新中...';
+
+    google.script.run
+      .withSuccessHandler(res => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        
+        badge.className = "badge bg-success text-white fw-normal px-3 py-2 rounded-pill";
+        badge.innerHTML = '<i class="fa-solid fa-cloud-arrow-up me-1"></i> 保存成功';
+        
+        alert("LDP(BigQuery)のデータを正常に更新しました。");
+        loadPelletData(); // データを再読込して画面をリフレッシュ
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        alert("データの保存に失敗しました: " + err);
+      })
+      .savePelletData(data);
+  }
+</script>

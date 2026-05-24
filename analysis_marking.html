@@ -1,0 +1,223 @@
+<div class="container-fluid p-0">
+  <!-- ヘッダー・検索設定エリア -->
+  <div class="bg-white p-4 rounded-3 shadow-sm mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h3 class="text-lg font-bold border-l-4 border-blue-500 ps-3 mb-0">マーキング実績一覧（月次）</h3>
+      <button onclick="downloadCSV()" class="btn btn-outline-success btn-sm px-3 rounded-pill hidden" id="btn-download">
+        <i class="fa-solid fa-file-csv me-1"></i> CSVダウンロード
+      </button>
+    </div>
+    
+    <div class="row g-3 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label small fw-bold text-slate-600">対象月</label>
+        <input type="month" id="analysis-month" class="form-control form-control-lg">
+      </div>
+      <div class="col-md-2">
+        <button onclick="loadMarkingAnalysis()" class="btn btn-primary w-full py-2 fw-bold shadow-sm">
+          <i class="fa-solid fa-magnifying-glass me-1"></i> 検索
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 結果表示エリア -->
+  <div class="bg-white rounded-3 shadow-sm overflow-hidden min-h-[400px]">
+    <div class="p-3 bg-slate-50 border-bottom d-flex justify-content-between align-items-center">
+      <div class="d-flex align-items-center">
+        <span class="text-sm fw-bold text-slate-500 me-3">
+          <i class="fa-solid fa-table-list me-2"></i>抽出結果（1本以上）
+        </span>
+        <div id="analysis-count" class="badge bg-slate-200 text-slate-700">0 件</div>
+      </div>
+      <div class="text-xs text-slate-400 italic">
+        ※列名をクリックすると並べ替えができます
+      </div>
+    </div>
+    
+    <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+      <table class="table table-hover align-middle mb-0" id="analysis-table">
+        <thead class="table-light sticky-top" style="z-index: 1;">
+          <tr>
+            <th class="ps-4 cursor-pointer sortable" onclick="sortTable('EXTDate')" style="width: 20%;">
+              押出日付 <i class="fa-solid fa-sort ms-1 opacity-25" id="sort-icon-EXTDate"></i>
+            </th>
+            <th class="cursor-pointer sortable" onclick="sortTable('Kataban')" style="width: 25%;">
+              型番 <i class="fa-solid fa-sort ms-1 opacity-25" id="sort-icon-Kataban"></i>
+            </th>
+            <th class="cursor-pointer sortable" onclick="sortTable('ContainerNo')" style="width: 25%;">
+              容器NO <i class="fa-solid fa-sort ms-1 opacity-25" id="sort-icon-ContainerNo"></i>
+            </th>
+            <th class="text-end pe-5 cursor-pointer sortable" onclick="sortTable('Count')" style="width: 30%;">
+              マーキング本数 <i class="fa-solid fa-sort ms-1 opacity-25" id="sort-icon-Count"></i>
+            </th>
+          </tr>
+        </thead>
+        <tbody id="analysis-list-body">
+          <tr>
+            <td colspan="4" class="text-center py-10 text-slate-400">
+              <div class="animate-pulse"><i class="fa-solid fa-arrow-pointer me-2"></i>対象月を選択して「検索」を押してください</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+  .sortable:hover { background-color: rgba(0,0,0,0.05); }
+  .sort-active { opacity: 1 !important; color: #3b82f6; }
+</style>
+
+<script>
+let analysisData = []; // 取得データを保持
+let currentSort = { column: 'EXTDate', direction: 'asc' };
+
+/**
+ * ページ読み込み時の初期化
+ */
+document.addEventListener('DOMContentLoaded', () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const monthInput = document.getElementById('analysis-month');
+  if (monthInput) monthInput.value = `${year}-${month}`;
+});
+
+/**
+ * 分析データの取得
+ */
+function loadMarkingAnalysis() {
+  const monthStr = document.getElementById('analysis-month').value;
+  const tbody = document.getElementById('analysis-list-body');
+  const btnDownload = document.getElementById('btn-download');
+  
+  if (!monthStr) {
+    alert("対象月を選択してください。");
+    return;
+  }
+
+  tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10"><div class="spinner-border text-blue-500" role="status"></div><div class="mt-2 text-slate-500">BigQueryからデータを検索中...</div></td></tr>`;
+  btnDownload.classList.add('hidden');
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler((data) => {
+        analysisData = data;
+        renderAnalysisTable();
+      })
+      .withFailureHandler((err) => {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-danger">エラー: ${err.message}</td></tr>`;
+      })
+      .getMarkingAnalysisData(monthStr);
+  } else {
+    // モックデータ
+    setTimeout(() => {
+      analysisData = [
+        { EXTDate: "2026-05-01", Kataban: "PROD-A", ContainerNo: "C-101", Count: 150 },
+        { EXTDate: "2026-05-01", Kataban: "PROD-B", ContainerNo: "C-108", Count: 85 },
+        { EXTDate: "2026-05-02", Kataban: "PROD-A", ContainerNo: "C-112", Count: 200 },
+        { EXTDate: "2026-05-08", Kataban: "PROD-C", ContainerNo: "C-115", Count: 10 }
+      ];
+      renderAnalysisTable();
+    }, 800);
+  }
+}
+
+/**
+ * テーブルのソート
+ */
+function sortTable(column) {
+  if (analysisData.length === 0) return;
+
+  // ソート方向の決定
+  if (currentSort.column === column) {
+    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+  } else {
+    currentSort.column = column;
+    currentSort.direction = 'asc';
+  }
+
+  // ソートアイコンの更新
+  document.querySelectorAll('.fa-sort, .fa-sort-up, .fa-sort-down').forEach(icon => {
+    icon.className = 'fa-solid fa-sort ms-1 opacity-25';
+  });
+  const icon = document.getElementById(`sort-icon-${column}`);
+  icon.className = `fa-solid fa-sort-${currentSort.direction === 'asc' ? 'up' : 'down'} ms-1 sort-active`;
+
+  // データの並べ替え
+  analysisData.sort((a, b) => {
+    let valA = a[column];
+    let valB = b[column];
+
+    if (column === 'Count') {
+      return currentSort.direction === 'asc' ? valA - valB : valB - valA;
+    } else {
+      valA = (valA || '').toString().toLowerCase();
+      valB = (valB || '').toString().toLowerCase();
+      if (valA < valB) return currentSort.direction === 'asc' ? -1 : 1;
+      if (valA > valB) return currentSort.direction === 'asc' ? 1 : -1;
+      return 0;
+    }
+  });
+
+  renderAnalysisTable();
+}
+
+/**
+ * テーブルの描画
+ */
+function renderAnalysisTable() {
+  const tbody = document.getElementById('analysis-list-body');
+  const countBadge = document.getElementById('analysis-count');
+  const btnDownload = document.getElementById('btn-download');
+  
+  if (!analysisData || analysisData.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-slate-500">条件に一致するデータがありませんでした。</td></tr>`;
+    countBadge.innerText = '0 件';
+    btnDownload.classList.add('hidden');
+    return;
+  }
+
+  countBadge.innerText = `${analysisData.length} 件`;
+  btnDownload.classList.remove('hidden');
+  
+  tbody.innerHTML = analysisData.map((row) => {
+    const formattedDate = row.EXTDate.replace(/(\d{4})(\d{2})(\d{2})/, '$1/$2/$3').replace(/-/g, '/');
+
+    return `
+      <tr>
+        <td class="ps-4 fw-medium text-slate-700">${formattedDate}</td>
+        <td><span class="text-slate-700">${row.Kataban || '-'}</span></td>
+        <td><code class="bg-slate-100 px-2 py-1 rounded text-slate-600">${row.ContainerNo}</code></td>
+        <td class="text-end pe-5 fw-bold text-orange-600">${row.Count.toLocaleString()} <span class="text-sm text-slate-400 fw-normal">本</span></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+/**
+ * CSVダウンロード
+ */
+function downloadCSV() {
+  if (analysisData.length === 0) return;
+
+  const monthStr = document.getElementById('analysis-month').value;
+  let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
+  csvContent += "押出日付,型番,容器NO,マーキング本数\r\n";
+  
+  analysisData.forEach(row => {
+    csvContent += `${row.EXTDate},${row.Kataban},${row.ContainerNo},${row.Count}\r\n`;
+  });
+
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", `マーキング実績_${monthStr.replace('-','')}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+</script>
+```

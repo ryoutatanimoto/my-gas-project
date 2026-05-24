@@ -1,0 +1,1153 @@
+<div class="container-fluid p-0 report-mail-module">
+  <!-- ヘッダー・設定エリア -->
+  <div class="bg-white p-4 rounded-3 shadow-sm mb-4 border border-light">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+      <h3 class="fs-5 fw-bold ps-3 mb-0 text-dark" style="border-left: 4px solid #f97316;">
+        操業日報メール配信（tie-up実績を読み取るため、締め作業後に読込お願いします）
+      </h3>
+      <div id="report-status-badge" class="badge bg-light text-secondary fw-normal px-3 py-2 rounded-pill border">
+        <i class="fa-solid fa-envelope me-1"></i> 未作成
+      </div>
+    </div>
+    
+    <div class="row g-3">
+      <div class="col-md-3">
+        <label class="form-label small fw-bold text-secondary">対象日（日報日付）</label>
+        <input type="date" id="report-target-date" onchange="resetMailView()" class="form-control form-control-lg shadow-sm fs-6">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-bold text-secondary">対象直（シフト）</label>
+        <select id="report-target-shift" onchange="resetMailView()" class="form-select form-select-lg shadow-sm fs-6">
+          <option value="">選択してください</option>
+          <option value="1">1直</option>
+          <option value="2">2直</option>
+          <option value="3">3直</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small fw-bold text-secondary">対象班</label>
+        <select id="report-target-group" onchange="resetMailView()" class="form-select form-select-lg shadow-sm fs-6">
+          <option value="">選択してください</option>
+          <option value="A班">A班</option>
+          <option value="B班">B班</option>
+          <option value="C班">C班</option>
+          <option value="D班">D班</option>
+        </select>
+      </div>
+      <div class="col-md-3 d-flex align-items-end">
+        <button onclick="generateReportMail()" id="report-generate-btn" class="btn btn-lg px-4 shadow-sm w-100 fw-bold text-white transition-all" style="background-color: #f97316; border-color: #f97316;">
+          <i class="fa-solid fa-wand-magic-sparkles me-2"></i>日報データ集計・作成
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 本文書き込み・プレビューエリア (データ作成後に表示) -->
+  <div id="report-editor-card" class="d-none animate-fade-in">
+    <div class="row g-4 justify-content-center">
+      
+      <!-- メインの操業日報「用紙」プレビューシート -->
+      <div class="col-xl-12">
+        <div class="shadow-lg rounded-3 border bg-white overflow-hidden mx-auto" style="max-width: 1080px; color: #1e293b;">
+          
+          <!-- 用紙ヘッダー -->
+          <div class="border-bottom" style="background-color: #ffffff; padding: 20px 25px; border-bottom: 3px solid #f97316 !important;">
+            <div class="row align-items-center">
+              <div class="col-8">
+                <span class="fw-bold text-uppercase" style="font-size: 10px; color: #ea580c; letter-spacing: 0.15em;">LIXIL KURISAVA PLANT</span>
+                <h1 class="m-0 fs-3 text-dark mt-1" style="font-weight: 900; letter-spacing: -0.02em;">押出課 操業日報</h1>
+              </div>
+              <div class="col-4 text-end">
+                <span id="sheet-shift" class="badge bg-warning text-white px-3 py-2 fw-bold rounded fs-7" style="background-color: #f97316 !important;">1直</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 用紙サマリーバー -->
+          <div class="bg-light border-bottom p-2">
+            <div class="row text-center small fw-bold text-secondary">
+              <div class="col-4 border-end">作業日: <span id="sheet-date" class="text-dark fw-bold">--</span></div>
+              <div class="col-4 border-end">対象直: <span id="sheet-shift-val" class="text-dark fw-bold">--</span></div>
+              <div class="col-4">担当班: <span id="sheet-group" class="text-dark fw-bold">--</span></div>
+            </div>
+          </div>
+
+          <!-- 送信設定インプット -->
+          <div class="p-3 bg-light border-bottom">
+            <div class="row g-2 small">
+              <div class="col-md-4">
+                <label class="form-label fw-bold text-secondary m-0 mb-1">宛先 (To)</label>
+                <input type="text" id="report-mail-to" class="form-control form-control-sm shadow-sm" placeholder="">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-bold text-secondary m-0 mb-1">コピー (CC)</label>
+                <input type="text" id="report-mail-cc" class="form-control form-control-sm shadow-sm" placeholder="">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-bold text-secondary m-0 mb-1">件名 (Subject)</label>
+                <input type="text" id="report-mail-subject" class="form-control form-control-sm shadow-sm fw-bold">
+              </div>
+            </div>
+          </div>
+
+          <!-- 用紙の中身：実績直接編集エリア -->
+          <div class="p-3 p-md-4 custom-space-y">
+
+            <!-- 操業ダッシュボード（直行率・生産重量・直行不能重量 ＆ 不良ワースト3） -->
+            <div class="mb-4">
+              <h3 class="fs-6 fw-bold ps-2 mb-2 text-uppercase text-dark" style="border-left: 4px solid #ea580c; letter-spacing: 0.05em;">当直操業サマリー統計（生産実績・不良ワースト3）</h3>
+              <div class="row g-2">
+                <!-- 統計情報カード -->
+                <div class="col-md-6">
+                  <div class="p-3 rounded shadow-sm border bg-light h-100">
+                    <div class="row text-center align-items-start">
+                      <div class="col-4">
+                        <div class="fw-bold text-secondary mb-1" style="font-size: 10px;">当直直行率</div>
+                        <div id="stat-direct-rate" class="fs-4 fw-bold" style="color: #ea580c;">0.0%</div>
+                        <!-- 工程内比率表示 -->
+                        <div class="fw-bold mt-1 text-center" style="font-size: 9px; color: #64748b; line-height: 1.4;">
+                          <div>不良率: <span id="stat-defect-rate" style="color: #ef4444;">0.0%</span></div>
+                          <div>ロス率: <span id="stat-loss-rate" style="color: #7c3aed;">0.0%</span></div>
+                        </div>
+                      </div>
+                      <div class="col-4 border-start">
+                        <div class="fw-bold text-secondary mb-1" style="font-size: 10px;">生産重量</div>
+                        <div id="stat-total-good" class="fs-5 fw-bold" style="color: #2563eb;">0.0kg</div>
+                      </div>
+                      <div class="col-4 border-start">
+                        <div class="fw-bold text-secondary mb-1" style="font-size: 10px;">直行不能重量</div>
+                        <div id="stat-total-failure" class="fs-5 fw-bold" style="color: #ef4444;">0.0kg</div>
+                        <!-- 不良・ロス内訳表示 -->
+                        <div class="fw-bold mt-1 text-start ps-2" style="font-size: 9px; color: #64748b; line-height: 1.4;">
+                          <div>┗ 不良: <span id="stat-total-defect" style="color: #ef4444;">0.0kg</span></div>
+                          <div>┗ ロス: <span id="stat-total-loss" style="color: #7c3aed;">0.0kg</span></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- 不良ワースト3カード -->
+                <div class="col-md-6">
+                  <div class="p-3 rounded shadow-sm border bg-white h-100 small">
+                    <div class="fw-bold text-dark mb-2">不良発生ワースト号機（Top3）</div>
+                    <ul id="stat-worst-list" class="list-unstyled m-0 fw-bold text-dark" style="line-height: 1.5;">
+                      <li class="text-secondary fw-normal">該当データなし</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 1. 勤怠・人員状況 -->
+            <div class="mb-4">
+              <h3 class="fs-6 fw-bold ps-2 mb-2 text-uppercase text-dark" style="border-left: 4px solid #1e293b; letter-spacing: 0.05em;">1. 勤怠・人員状況</h3>
+              <div class="row g-2 p-2 bg-light rounded shadow-sm border">
+                <div class="col-md-6">
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white fw-bold text-secondary" style="min-width: 90px; font-size: 11px;">欠勤 (Absent)</span>
+                    <input type="text" id="report-absent" class="form-control fw-bold">
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white fw-bold text-secondary" style="min-width: 90px; font-size: 11px;">応援 (Support)</span>
+                    <input type="text" id="report-support" class="form-control fw-bold">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. 号機別 操業・品質・対策実績 -->
+            <div class="mb-4">
+              <h3 class="fs-6 fw-bold ps-2 mb-1 text-uppercase text-dark" style="border-left: 4px solid #3b82f6; letter-spacing: 0.05em;">2. 押出成形・品質実績 (号機別)</h3>
+              <p class="text-secondary fw-bold mb-2" style="font-size: 10px;"><i class="fa-solid fa-info-circle me-1"></i>良品重量は（積載本数×単重×定尺）より自動算出。不良TOP3からロス関連項目は自動除外されています。</p>
+              
+              <!-- 13号機分の省スペース・2段構成コンテナ -->
+              <div id="machine-sheets-container" class="custom-space-y">
+                <!-- JSで動的に構築されます -->
+              </div>
+            </div>
+
+            <!-- 3. 粉砕・ペレタイザー実績 -->
+            <div class="mb-4">
+              <h3 class="fs-6 fw-bold ps-2 mb-2 text-uppercase text-dark" style="border-left: 4px solid #7c3aed; letter-spacing: 0.05em;">3. 粉砕・ペレタイザー実績</h3>
+              <div class="table-responsive rounded border shadow-sm">
+                <table class="table table-sm table-bordered align-middle text-center mb-0 small">
+                  <thead class="table-light">
+                    <tr class="fw-bold text-secondary" style="font-size: 10px;">
+                      <th>作業分類</th>
+                      <th>生産・粉砕量 (kg)</th>
+                      <th>稼働時間 (分)</th>
+                      <th>補足情報</th>
+                    </tr>
+                  </thead>
+                  <tbody class="fw-bold">
+                    <tr>
+                      <td class="text-start ps-3 py-1">ホワイト粉砕</td>
+                      <td class="text-secondary py-1">-</td>
+                      <td id="table-white-scrap-time" class="text-dark py-1">0</td>
+                      <td class="text-secondary small py-1" style="font-size: 10px; font-weight: normal;">ホワイト粉砕重量は測定なし</td>
+                    </tr>
+                    <tr>
+                      <td class="text-start ps-3 py-1" style="color: #ea580c;">カラー粉砕</td>
+                      <td id="table-color-scrap-weight" class="py-1" style="color: #ea580c;">0.0</td>
+                      <td id="table-color-scrap-time" class="py-1" style="color: #ea580c;">0</td>
+                      <td class="text-secondary small py-1" style="font-size: 10px; font-weight: normal;">カラー粉砕実績</td>
+                    </tr>
+                    <tr>
+                      <td class="text-start ps-3 text-dark py-1">ペレタイザー（製品）</td>
+                      <td id="table-pellet-weight" class="text-dark py-1" style="font-weight: 900;">0.0</td>
+                      <td id="table-pellet-time" class="text-dark py-1">0</td>
+                      <td id="table-pellet-type" class="text-dark text-start ps-3 small py-1" style="font-size: 10px; font-weight: normal;">生産種類: --</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- 4. その他・引き継ぎ -->
+            <div class="mb-3">
+              <h3 class="fs-6 fw-bold ps-2 mb-2 text-uppercase text-dark" style="border-left: 4px solid #64748b; letter-spacing: 0.05em;">4. その他特記・引継ぎ事項</h3>
+              <textarea id="report-other" class="form-control shadow-sm small" rows="2"></textarea>
+            </div>
+
+          </div>
+
+          <!-- 用紙フッター・送信アクション -->
+          <div class="bg-light p-3 border-top text-center">
+            <button onclick="sendReportMail()" id="report-send-btn" class="btn px-5 fw-bold text-white shadow d-flex align-items-center justify-content-center gap-2 mx-auto" style="background-color: #0f172a; border-color: #0f172a; font-size: 13px;">
+              <i class="fa-solid fa-paper-plane"></i>
+              完成した操業日報メールを送信する
+            </button>
+            <div class="text-secondary fw-bold mt-2 text-uppercase" style="font-size: 9px; letter-spacing: 0.15em;">
+              LIXIL EXTRUSION DEPARTMENT DAILY REPORT SYSTEM
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- 送信メールプレビュー表示用モーダル (シミュレータ環境用) -->
+<div class="modal fade" id="simulator-mail-modal" tabindex="-1" aria-labelledby="simulatorMailLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header text-white py-3" style="background-color: #0f172a;">
+        <h5 class="modal-title fw-bold fs-6" id="simulatorMailLabel">
+          <i class="fa-solid fa-paper-plane me-2" style="color: #fb923c;"></i>
+          【プレビュー送信完了】実際に配信されたHTMLメール実物
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body bg-light p-0">
+        <div class="bg-white p-3 border-bottom small fw-bold text-secondary">
+          <div><span class="text-muted">宛先 (To):</span> <span id="modal-mail-to" class="text-dark"></span></div>
+          <div class="mt-1"><span class="text-muted">件名 (Subject):</span> <span id="modal-mail-subject" class="text-dark font-weight-bold"></span></div>
+        </div>
+        <div class="p-3">
+          <div class="bg-white rounded shadow-sm border overflow-hidden mx-auto" style="max-width: 950px;">
+            <iframe id="mail-iframe" style="width: 100%; min-height: 650px; border: none; display: block;"></iframe>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer bg-light py-2">
+        <button type="button" class="btn btn-sm btn-secondary fw-bold" data-bs-dismiss="modal">プレビューを閉じる</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* 埋め込み環境で他のパーツを壊さない独自のCSSスコープ */
+  .report-mail-module {
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  .animate-fade-in {
+    animation: fadeIn 0.25s ease-out forwards;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .custom-space-y > * + * {
+    margin-top: 1rem !important;
+  }
+  /* 入力枠のコンパクト化のための調整 */
+  .compact-input {
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    height: 24px;
+    width: 100%;
+    transition: all 0.15s;
+  }
+  .compact-input:focus {
+    border-color: #ea580c;
+    background-color: #fff;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.15);
+  }
+  /* テキストエリアの高さ自動調整用 */
+  .auto-expand-textarea {
+    min-height: 76px;
+    max-height: 200px;
+    resize: vertical;
+    overflow-y: auto;
+  }
+  /* カスタムスクロールバー */
+  .custom-scroll::-webkit-scrollbar {
+    width: 4px;
+  }
+  .custom-scroll::-webkit-scrollbar-track {
+    background: #f1f5f9;
+  }
+  .custom-scroll::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 2px;
+  }
+  .custom-scroll::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+</style>
+
+<script>
+  // ------------------------------------------------------------
+  // 🔌 開発/検証環境（GASなし環境）向けのインテリジェントモックシステム
+  // ------------------------------------------------------------
+  if (typeof google === 'undefined' || !google.script || !google.script.run) {
+    console.log("⚠️ GAS環境外での動作を検知しました。シミュレータモードを有効化します。");
+    window.google = {
+      script: {
+        run: {
+          successHandler: null,
+          failureHandler: null,
+          withSuccessHandler: function(handler) {
+            this.successHandler = handler;
+            return this;
+          },
+          withFailureHandler: function(handler) {
+            this.failureHandler = handler;
+            return this;
+          },
+          getMailMasterAddresses: function() {
+            const mockAddrs = ["plant-manager@lixil.com", "oshidashi-group@lixil.com", "admin-kurisawa@lixil.com"];
+            setTimeout(() => {
+              if (this.successHandler) this.successHandler(mockAddrs);
+            }, 300);
+          },
+          assembleDailyReportData: function(date, shift, group) {
+            const shiftLabel = shift === "1" ? "1直" : shift === "2" ? "2直" : shift === "3" ? "3直" : shift;
+            
+            const mockRes = {
+              success: true,
+              date: date.replace(/-/g, '/'),
+              shift: shiftLabel,
+              group: group,
+              defaultTo: "kurisawa-oshidashi@lixil.com, plant-admin@lixil.com",
+              pellet: {
+                white_scrap_time: 120,
+                color_scrap_weight: 450.5,
+                color_scrap_time: 185,
+                pellet_weight: 1250.0,
+                pellet_time: 240,
+                pellet_type: "PEライトグレー"
+              },
+              machines: [
+                {
+                  machine_id: "1",
+                  production_weight: 480.0,
+                  defect_weight: 12.5,
+                  loss_weight: 25.0,
+                  defects_top3: "(キズ:8.5kg, 曲がり:4.0kg)",
+                  loss_top3: "(立上ﾛｽ:20.0kg, 色替ﾛｽ:5.0kg)",
+                  color_change: "A123S → B456K",
+                  timeline_text: "<div>00:00～02:30 : 押出稼働</div><div>02:30～03:15 : 色替作業</div><div>03:15～08:30 : 押出稼働</div>",
+                  last_event: "押出稼働",
+                  hide_machine: false
+                },
+                {
+                  machine_id: "2",
+                  production_weight: 150.0,
+                  defect_weight: 48.0,
+                  loss_weight: 120.0, 
+                  defects_top3: "(気泡:35.0kg, 寸法不良:13.0kg)",
+                  loss_top3: "(機種替ﾛｽ:80.0kg, 停止ﾛｽ:40.0kg)",
+                  color_change: "C789P",
+                  timeline_text: "<div>00:00～03:00 : 押出稼働</div><div>03:00～05:40 : 故障トラブル</div><div>05:40～08:30 : 押出稼働</div>",
+                  last_event: "押出稼働",
+                  hide_machine: false
+                },
+                {
+                  machine_id: "3",
+                  production_weight: 0,
+                  defect_weight: 0,
+                  loss_weight: 0,
+                  timeline_text: "",
+                  last_event: "金型セット",
+                  hide_machine: true 
+                },
+                {
+                  machine_id: "4",
+                  production_weight: 520.4,
+                  defect_weight: 0,
+                  loss_weight: 15.0, 
+                  defects_top3: "",
+                  loss_top3: "(立上ﾛｽ:15.0kg)",
+                  color_change: "D101A",
+                  timeline_text: "<div>00:00～08:30 : 押出稼働</div>",
+                  last_event: "押出稼働",
+                  hide_machine: false
+                },
+                {
+                  machine_id: "8A",
+                  production_weight: 490.5,
+                  defect_weight: 18.0, 
+                  loss_weight: 0,
+                  defects_top3: "(曲がり:18.0kg)",
+                  loss_top3: "",
+                  color_change: "E202B",
+                  timeline_text: "<div>00:00～08:30 : 押出稼働</div>",
+                  last_event: "押出稼働",
+                  hide_machine: false
+                },
+                {
+                  machine_id: "8B",
+                  production_weight: 0,
+                  defect_weight: 0,
+                  loss_weight: 0,
+                  timeline_text: "",
+                  last_event: "",
+                  hide_machine: true
+                },
+                {
+                  machine_id: "9",
+                  production_weight: 380.0,
+                  defect_weight: 5.5,
+                  loss_weight: 12.0,
+                  defects_top3: "(キズ:5.5kg)",
+                  loss_top3: "(その他の試押ﾛｽ:12.0kg)",
+                  color_change: "F909S",
+                  timeline_text: "<div>00:00～08:30 : 押出稼働</div>",
+                  last_event: "押出稼働",
+                  hide_machine: false
+                }
+              ],
+              summary: {
+                totalGoodWeight: "2020.9",
+                totalDefectWeight: "84.0",
+                totalLossWeight: "172.0",
+                totalFailureWeight: "256.0", 
+                directRate: "88.8%",       
+                defectRate: "3.7%",        
+                lossRate: "7.6%",          
+                worstDefects: [
+                  "1位: 2号機 (気泡: 35.0kg)",
+                  "2位: 8A号機 (曲がり: 18.0kg)",
+                  "3位: 2号機 (寸法不良: 13.0kg)"
+                ]
+              }
+            };
+            setTimeout(() => {
+              if (this.successHandler) this.successHandler(mockRes);
+            }, 800);
+          },
+          sendFormattedEmail: function(to, cc, subject, bodyHtml) {
+            setTimeout(() => {
+              if (this.successHandler) {
+                showSimulatorMailModal(to, cc, subject, bodyHtml);
+                this.successHandler({ success: true });
+              }
+            }, 1000);
+          }
+        }
+      }
+    };
+  }
+
+  // ------------------------------------------------------------
+  // 📝 フロントエンド JavaScript メインロジック
+  // ------------------------------------------------------------
+  let rawReportData = null; 
+
+  const REPORT_MACHINE_IDS = ['1', '2', '3', '4', '5', '6', '7', '8A', '8B', '9', '10', '11', '12'];
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initReportMail);
+  } else {
+    initReportMail();
+  }
+
+  function initReportMail() {
+    const today = new Date().toISOString().split('T')[0];
+    const dateInput = document.getElementById('report-target-date');
+    if (dateInput) {
+      dateInput.value = today;
+    }
+    loadDefaultAddresses();
+  }
+
+  function loadDefaultAddresses() {
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+      google.script.run
+        .withSuccessHandler(addresses => {
+          const toInput = document.getElementById('report-mail-to');
+          if (addresses && addresses.length > 0 && toInput) {
+            toInput.value = addresses.join(', ');
+          }
+        })
+        .withFailureHandler(err => {
+          console.error("メールマスタ取得エラー:", err);
+        })
+        .getMailMasterAddresses(); 
+    }
+  }
+
+  function resetMailView() {
+    const card = document.getElementById('report-editor-card');
+    const badge = document.getElementById('report-status-badge');
+    
+    if (card) card.classList.add('d-none');
+    if (badge) {
+      badge.className = "badge bg-light text-secondary fw-normal px-3 py-2 rounded-pill border";
+      badge.innerHTML = '<i class="fa-solid fa-envelope me-1"></i> 未作成';
+    }
+  }
+
+  // LDP（BigQuery）の操業データを集計して描画
+  function generateReportMail() {
+    const date = document.getElementById('report-target-date').value;
+    const shift = document.getElementById('report-target-shift').value;
+    const group = document.getElementById('report-target-group').value;
+    const badge = document.getElementById('report-status-badge');
+    const genBtn = document.getElementById('report-generate-btn');
+    const card = document.getElementById('report-editor-card');
+
+    if (!date) return alert("対象日を指定してください。");
+    if (!shift) return alert("対象の直（シフト）を選択してください。");
+    if (!group) return alert("対象の班を選択してください。");
+
+    genBtn.disabled = true;
+    const originalBtnText = genBtn.innerHTML;
+    genBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>集計中...';
+    
+    badge.className = "badge bg-warning-subtle text-warning fw-normal px-3 py-2 rounded-pill border border-warning-subtle";
+    badge.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> LDPから操業データを集計中...';
+
+    google.script.run
+      .withSuccessHandler(res => {
+        genBtn.disabled = false;
+        genBtn.innerHTML = originalBtnText;
+        
+        if (!res.success) {
+          badge.className = "badge bg-danger-subtle text-danger fw-normal px-3 py-2 rounded-pill border border-danger-subtle";
+          badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation me-1"></i> 集計失敗';
+          alert("LDP集計エラー: " + res.message);
+          return;
+        }
+
+        if (card) card.classList.remove('d-none');
+        rawReportData = res; 
+
+        // プレビューシートのヘッダー情報更新
+        document.getElementById('sheet-date').innerText = res.date;
+        const shiftLabel = shift === "1" ? "1直" : shift === "2" ? "2直" : shift === "3" ? "3直" : shift;
+        document.getElementById('sheet-shift').innerText = shiftLabel;
+        document.getElementById('sheet-shift-val').innerText = shiftLabel;
+        document.getElementById('sheet-group').innerText = res.group;
+
+        // 送信情報・件名自動セット
+        document.getElementById('report-mail-to').value = res.defaultTo || "";
+        document.getElementById('report-mail-subject').value = `【押出課 操業日報】${res.date} ${shiftLabel} ${res.group}`;
+
+        // 操業統計の割り当て
+        const summary = res.summary || {};
+        const statDirectRateEl = document.getElementById('stat-direct-rate');
+        statDirectRateEl.innerHTML = `<div class="fw-bold" style="color: #ea580c;">${summary.directRate}</div>`;
+
+        // 工程内比率
+        document.getElementById('stat-defect-rate').innerText = summary.defectRate || "0.0%";
+        document.getElementById('stat-loss-rate').innerText = summary.lossRate || "0.0%";
+
+        // 各重量
+        document.getElementById('stat-total-good').innerText = (summary.totalGoodWeight ? parseFloat(summary.totalGoodWeight).toLocaleString() : "0.0") + "kg";
+        document.getElementById('stat-total-failure').innerText = (summary.totalFailureWeight ? parseFloat(summary.totalFailureWeight).toLocaleString() : "0.0") + "kg";
+        document.getElementById('stat-total-defect').innerText = (summary.totalDefectWeight ? parseFloat(summary.totalDefectWeight).toLocaleString() : "0.0") + "kg";
+        document.getElementById('stat-total-loss').innerText = (summary.totalLossWeight ? parseFloat(summary.totalLossWeight).toLocaleString() : "0.0") + "kg";
+
+        // 不良発生ワースト3の描画
+        const worstListEl = document.getElementById('stat-worst-list');
+        worstListEl.innerHTML = "";
+        if (summary.worstDefects && summary.worstDefects.length > 0) {
+          summary.worstDefects.forEach(defectText => {
+            const li = document.createElement('li');
+            li.className = "fw-bold text-dark";
+            li.innerHTML = `${defectText}`;
+            worstListEl.appendChild(li);
+          });
+        } else {
+          worstListEl.innerHTML = '<li class="text-secondary fw-normal">不良発生なし</li>';
+        }
+
+        // 号機別実績カードのビルド
+        renderMachineCards(res.machines);
+
+        // 粉砕・ペレタイザーの割り当て
+        const p = res.pellet || {};
+        const getValOrZero = (val) => (val === null || val === undefined) ? 0 : val;
+        const getFloatOrZero = (val) => (val === null || val === undefined) ? 0.0 : parseFloat(val);
+
+        document.getElementById('table-white-scrap-time').innerText = getValOrZero(p.white_scrap_time);
+        document.getElementById('table-color-scrap-weight').innerText = getFloatOrZero(p.color_scrap_weight).toFixed(1);
+        document.getElementById('table-color-scrap-time').innerText = getValOrZero(p.color_scrap_time);
+        document.getElementById('table-pellet-weight').innerText = getFloatOrZero(p.pellet_weight).toFixed(1);
+        document.getElementById('table-pellet-time').innerText = getValOrZero(p.pellet_time);
+        document.getElementById('table-pellet-type').innerText = `生産種類: ${p.pellet_type || "未生産"}`;
+
+        badge.className = "badge bg-success-subtle text-success fw-normal px-3 py-2 rounded-pill border border-success-subtle";
+        badge.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles me-1"></i> 日報作成完了';
+      })
+      .withFailureHandler(err => {
+        genBtn.disabled = false;
+        genBtn.innerHTML = originalBtnText;
+        badge.className = "badge bg-danger-subtle text-danger fw-normal px-3 py-2 rounded-pill border border-danger-subtle";
+        badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation me-1"></i> 通信エラー';
+        alert("操業実績データの集計に失敗しました。\n詳細: " + err);
+      })
+      .assembleDailyReportData(date, shift, group);
+  }
+
+  // 13号機分の省スペース 2段構成カード描画
+  function renderMachineCards(machines) {
+    const container = document.getElementById('machine-sheets-container');
+    container.innerHTML = "";
+
+    machines.forEach(m => {
+      if (m.hide_machine) {
+        return;
+      }
+
+      const prodWeight = m.production_weight > 0 ? `${m.production_weight.toFixed(1)}kg` : "";
+      const defectWeight = m.defect_weight > 0 ? `${m.defect_weight.toFixed(1)}kg` : "";
+      const lossWeight = m.loss_weight > 0 ? `${m.loss_weight.toFixed(1)}kg` : "";
+      
+      const defaultColorText = m.color_change || "";
+
+      let weightBadgeHtml = "";
+      let isAlert = false;
+      if (prodWeight || defectWeight || lossWeight) {
+        const gVal = parseFloat(m.production_weight) || 0;
+        const dVal = parseFloat(m.defect_weight) || 0;
+        const lVal = parseFloat(m.loss_weight) || 0;
+        const totVal = gVal + dVal + lVal;
+        const indRateVal = totVal > 0 ? (gVal / totVal) * 100 : 100.0;
+        const indRateStr = indRateVal.toFixed(1) + "%";
+
+        isAlert = indRateVal < 70;
+        const rateColorStyle = isAlert ? 'color: #ef4444; font-weight: 900;' : 'color: #ea580c; font-weight: 900;';
+
+        weightBadgeHtml = `
+          <div class="bg-light border rounded px-2 py-1 small fw-bold flex-shrink-0 shadow-sm" style="font-size: 11px; line-height: 1.5;">
+            直行率: <span style="${rateColorStyle}">${indRateStr}</span> | 
+            良品: <span style="color: #2563eb; font-weight: bold;">${prodWeight || '0.0kg'}</span> 
+            ${defectWeight ? ` | <span style="color: #ef4444; font-weight: bold;">不良: ${defectWeight} ${m.defects_top3 || ''}</span>` : ''}
+            ${lossWeight ? ` | <span style="color: #7c3aed; font-weight: bold;">ロス: ${lossWeight} ${m.loss_top3 || ''}</span>` : ''}
+          </div>
+        `;
+      }
+
+      const timelineHtml = m.timeline_text || '<span class="text-muted">実績時間データなし</span>';
+      const cardBorderClass = isAlert ? 'border-danger border-2' : 'border-light';
+      const cardBgStyle = isAlert ? 'background-color: rgba(239, 68, 68, 0.05);' : '';
+
+      container.innerHTML += `
+        <div class="p-2 bg-white border ${cardBorderClass} rounded hover-bg-light transition-all shadow-sm" style="${cardBgStyle}">
+          <!-- 上段 -->
+          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 border-b border-light pb-2 mb-2">
+            <div class="d-flex align-items-center gap-2 flex-grow-1" style="max-width: 65%;">
+              <span class="badge bg-dark text-white fw-bold py-2 px-3 rounded text-center flex-shrink-0" style="min-width: 60px; height: 28px; line-height: 14px; font-size: 11px;">${m.machine_id}号機</span>
+              <div class="input-group input-group-sm flex-grow-1">
+                <span class="input-group-text py-1 px-2 bg-light text-secondary fw-bold" style="height: 28px; font-size: 10px;">型番・色</span>
+                <input type="text" id="m-color-change-${m.machine_id}" value="${defaultColorText}" class="form-control form-control-sm py-1 px-2 fw-bold text-dark" style="height:28px; font-size: 12px;" placeholder="">
+              </div>
+            </div>
+            ${weightBadgeHtml}
+          </div>
+          
+          <!-- 下段 -->
+          <div class="row g-2">
+            <div class="col-md-4 border-end border-light pe-2 d-flex flex-column justify-content-start">
+              <div class="fw-bold text-secondary mb-1 text-uppercase" style="font-size: 9px; letter-spacing: 0.05em;">
+                <i class="fa-solid fa-clock-rotate-left me-1"></i>時間状況実績（LDP連動）
+              </div>
+              <div class="fw-bold text-dark overflow-y-auto max-h-[110px] custom-scroll" style="font-size: 11px; line-height: 1.4;">
+                ${timelineHtml}
+              </div>
+            </div>
+            <div class="col-md-8">
+              <div class="input-group input-group-sm h-100">
+                <span class="input-group-text py-1 px-2 bg-light text-secondary fw-bold d-flex align-items-center justify-content-center" style="min-width: 75px; font-size: 10px;">対策・処置</span>
+                <textarea id="m-memo-${m.machine_id}" class="form-control form-control-sm py-1 px-2 text-dark auto-expand-textarea" rows="3" style="min-height: 76px; height:76px; font-size: 12px;" oninput="adjustTextareaHeight(this)" placeholder="対策や処置を入力してください"></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    setTimeout(() => {
+      document.querySelectorAll('.auto-expand-textarea').forEach(textarea => {
+        adjustTextareaHeight(textarea);
+      });
+    }, 50);
+  }
+
+  function adjustTextareaHeight(element) {
+    element.style.height = '76px'; 
+    const scrollHeight = element.scrollHeight;
+    if (scrollHeight > 76) {
+      element.style.height = scrollHeight + 'px';
+    }
+  }
+
+  // 実際の配信用HTMLメールを生成
+  function compileFinalHtml() {
+    const dateEl = document.getElementById('report-target-date');
+    const date = dateEl ? dateEl.value.replace(/-/g, '/') : "";
+    
+    const shiftEl = document.getElementById('report-target-shift');
+    const shift = shiftEl ? shiftEl.value : "";
+    
+    const groupEl = document.getElementById('report-target-group');
+    const group = groupEl ? groupEl.value : "";
+    
+    const shiftLabel = shift === "1" ? "1直" : shift === "2" ? "2直" : shift === "3" ? "3直" : shift;
+
+    const absentEl = document.getElementById('report-absent');
+    const absent = absentEl ? absentEl.value.trim() : "";
+    
+    const supportEl = document.getElementById('report-support');
+    const support = supportEl ? supportEl.value.trim() : "";
+    
+    const otherEl = document.getElementById('report-other');
+    const otherText = otherEl ? otherEl.value.trim() : "";
+
+    const directRateEl = document.getElementById('stat-direct-rate');
+    const directRateText = directRateEl ? directRateEl.innerText.trim() : "0.0%";
+    
+    const defectRateEl = document.getElementById('stat-defect-rate');
+    const defectRateText = defectRateEl ? defectRateEl.innerText.trim() : "0.0%";
+    
+    const lossRateEl = document.getElementById('stat-loss-rate');
+    const lossRateText = lossRateEl ? lossRateEl.innerText.trim() : "0.0%";
+    
+    const totalGoodEl = document.getElementById('stat-total-good');
+    const totalGoodText = totalGoodEl ? totalGoodEl.innerText.trim() : "0.0kg";
+    
+    const totalFailureEl = document.getElementById('stat-total-failure');
+    const totalFailureText = totalFailureEl ? totalFailureEl.innerText.trim() : "0.0kg";
+    
+    const totalDefectEl = document.getElementById('stat-total-defect');
+    const totalDefectText = totalDefectEl ? totalDefectEl.innerText.trim() : "0.0kg";
+    
+    const totalLossEl = document.getElementById('stat-total-loss');
+    const totalLossText = totalLossEl ? totalLossEl.innerText.trim() : "0.0kg";
+    
+    let worstListHtml = "";
+    const worstLis = document.querySelectorAll('#stat-worst-list li');
+    if (worstLis && worstLis.length > 0) {
+      worstLis.forEach(li => {
+        worstListHtml += `<li style="margin-bottom: 4px; color: #334155; font-weight: bold; list-style-type: none;">${li.innerText}</li>`;
+      });
+    }
+    if (!worstListHtml || worstListHtml.includes('該当データなし')) {
+      worstListHtml = '<li style="color: #94a3b8; list-style-type: none;">不良発生なし</li>';
+    }
+
+    let directRateMailHtml = `
+      <div style="font-size: 20px; font-weight: 900; color: #ea580c; padding-top: 5px;">${directRateText}</div>
+      <div style="font-size: 9px; color: #64748b; font-weight: bold; margin-top: 4px; line-height: 1.3;">
+        不良率: <span style="color: #ef4444;">${defectRateText}</span><br>
+        ロス率: <span style="color: #7c3aed;">${lossRateText}</span>
+      </div>
+    `;
+
+    let moldingRowsHtml = "";
+    if (rawReportData && rawReportData.machines) {
+      rawReportData.machines.forEach(m => {
+        if (m.hide_machine) {
+          return;
+        }
+
+        const prodWeight = m.production_weight > 0 ? `${m.production_weight.toFixed(1)}kg` : "";
+        const defectWeight = m.defect_weight > 0 ? `${m.defect_weight.toFixed(1)}kg` : "";
+        const lossWeight = m.loss_weight > 0 ? `${m.loss_weight.toFixed(1)}kg` : "";
+        
+        const colorChangeEl = document.getElementById(`m-color-change-${m.machine_id}`);
+        const colorChangeVal = colorChangeEl ? colorChangeEl.value.trim() : (m.color_change || "");
+        
+        const memoEl = document.getElementById(`m-memo-${m.machine_id}`);
+        const memoVal = memoEl ? memoEl.value.trim() : "";
+
+        let displayCodeHtml = '<span style="color:#cbd5e1;">--</span>';
+        if (colorChangeVal) {
+          const isTransition = colorChangeVal.indexOf('→') !== -1;
+          displayCodeHtml = `<div style="font-size:12px; color:${isTransition ? '#ea580c' : '#1e293b'}; font-weight: bold;">${colorChangeVal}</div>`;
+        }
+        
+        const displayProd = prodWeight ? prodWeight : "-";
+        
+        let displayDefect = "-";
+        if (defectWeight) {
+          displayDefect = `<div style="color: #dc2626; font-weight: bold; font-size: 11px;">${defectWeight}</div>`;
+          if (m.defects_top3) {
+            displayDefect += `<div style="font-size: 10px; color: #64748b; font-weight: bold; margin-top: 2px;">${m.defects_top3}</div>`;
+          }
+        }
+
+        let displayLoss = "-";
+        if (lossWeight) {
+          displayLoss = `<div style="color: #7c3aed; font-weight: bold; font-size: 11px;">${lossWeight}</div>`;
+          if (m.loss_top3) {
+            displayLoss += `<div style="font-size: 10px; color: #64748b; font-weight: bold; margin-top: 2px;">${m.loss_top3}</div>`;
+          }
+        }
+        
+        const displayMemo = memoVal ? memoVal : '<span style="color:#cbd5e1;">--</span>';
+
+        const gVal = parseFloat(m.production_weight) || 0;
+        const dVal = parseFloat(m.defect_weight) || 0;
+        const lVal = parseFloat(m.loss_weight) || 0;
+        const totVal = gVal + dVal + lVal;
+        const indRateVal = totVal > 0 ? (gVal / totVal) * 100 : 100.0;
+        const indRateStr = indRateVal.toFixed(1) + "%";
+
+        const rateColor = indRateVal < 70 ? '#ef4444' : '#ea580c';
+        const timelineHtml = m.timeline_text || '<span style="color:#cbd5e1;">実績時間データなし</span>';
+        const displayTimeHtml = `
+          <div style="font-size: 10px; line-height: 1.4; color: #334155; font-weight: bold;">
+            ${timelineHtml}
+          </div>
+        `;
+
+        const isAlert = indRateVal < 70;
+        const rowStyle = isAlert 
+          ? 'border: 2.5px solid #ef4444; background-color: #fdf2f2; font-size: 11px;' 
+          : 'border-bottom: 1px solid #e2e8f0; font-size: 11px;';
+
+        moldingRowsHtml += `
+          <tr class="responsive-tr" style="${rowStyle}">
+            <td class="td-machine" style="padding: 10px 8px; font-weight: bold; background-color: #f8fafc; text-align: center; border-right: 1px solid #e2e8f0;">${m.machine_id}号機</td>
+            <td class="td-prod-info" style="padding: 10px 8px; text-align: left; font-weight: bold; border-right: 1px solid #e2e8f0;">
+              ${displayCodeHtml}
+            </td>
+            <td class="td-time-info" style="padding: 10px 8px; text-align: left; border-right: 1px solid #e2e8f0;">
+              ${displayTimeHtml}
+            </td>
+            <td class="td-good" style="padding: 10px 8px; text-align: right; font-weight: bold; border-right: 1px solid #e2e8f0;">
+              <div style="font-size: 10px; color: ${rateColor}; font-weight: bold; margin-bottom: 2px;">直行率: ${indRateStr}</div>
+              <div style="color: #2563eb;">${displayProd}</div>
+            </td>
+            <td class="td-defect" style="padding: 10px 8px; text-align: right; font-weight: bold; border-right: 1px solid #e2e8f0;">
+              ${displayDefect}
+            </td>
+            <td class="td-loss" style="padding: 10px 8px; text-align: right; font-weight: bold; border-right: 1px solid #e2e8f0;">
+              ${displayLoss}
+            </td>
+            <td class="td-memo" style="padding: 10px 8px; text-align: left; font-size: 11px; color: #334155; word-break: break-all;">${displayMemo}</td>
+          </tr>
+        `;
+      });
+    }
+
+    const wScrapEl = document.getElementById('table-white-scrap-time');
+    const wScrap = wScrapEl ? wScrapEl.innerText : "0";
+    
+    const cScrapWEl = document.getElementById('table-color-scrap-weight');
+    const cScrapW = cScrapWEl ? cScrapWEl.innerText : "0.0";
+    
+    const cScrapTEl = document.getElementById('table-color-scrap-time');
+    const cScrapT = cScrapTEl ? cScrapTEl.innerText : "0";
+    
+    const pWEl = document.getElementById('table-pellet-weight');
+    const pW = pWEl ? pWEl.innerText : "0.0";
+    
+    const pTEl = document.getElementById('table-pellet-time');
+    const pT = pTEl ? pTEl.innerText : "0";
+    
+    const pTypeEl = document.getElementById('table-pellet-type');
+    const pType = pTypeEl ? pTypeEl.innerText : "生産種類: --";
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          @media only screen and (max-width: 600px) {
+            .responsive-table { width: 100% !important; }
+            .responsive-table thead { display: none !important; }
+            .responsive-table tbody, .responsive-table tr, .responsive-table td {
+              display: block !important; width: 100% !important; box-sizing: border-box !important;
+            }
+            .responsive-tr {
+              margin-bottom: 12px !important; border: 1px solid #e2e8f0 !important;
+              border-radius: 8px !important; background-color: #ffffff !important;
+              padding: 8px !important; box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+            }
+            .td-machine {
+              background-color: #1e293b !important; color: #ffffff !important;
+              font-size: 12px !important; font-weight: bold !important; text-align: center !important;
+              padding: 4px 10px !important; border-radius: 4px !important; display: inline-block !important;
+              width: auto !important; border-right: none !important;
+            }
+            .td-prod-info { margin-top: 6px !important; border-right: none !important; padding: 4px 0 !important; }
+            .td-time-info { margin-top: 4px !important; border-right: none !important; padding: 4px 0 !important; }
+            .td-good, .td-defect, .td-loss {
+              display: inline-block !important; width: auto !important; border-right: none !important;
+              padding: 2px 8px 2px 0 !important; font-size: 11px !important;
+            }
+            .td-good::before { content: "【良品】 " !important; color: #64748b !important; font-weight: normal !important; }
+            .td-defect::before { content: "【不良】 " !important; color: #64748b !important; font-weight: normal !important; }
+            .td-loss::before { content: "【ロス】 " !important; color: #64748b !important; font-weight: normal !important; }
+            .td-memo {
+              display: block !important; background-color: #f8fafc !important;
+              border-top: 1px dashed #cbd5e1 !important; margin-top: 8px !important;
+              padding: 8px !important; border-radius: 4px !important; font-size: 11px !important;
+              color: #1e293b !important; line-height: 1.4 !important;
+            }
+            .td-memo::before {
+              content: "処置・対策（どう直したか）:" !important; display: block !important;
+              font-weight: bold !important; color: #475569 !important; margin-bottom: 4px !important; font-size: 10px !important;
+            }
+          }
+        </style>
+      </head>
+      <body style="margin: 0; padding: 0; background-color: #f8fafc;">
+        <table align="center" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 950px; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; margin-top: 15px; margin-bottom: 15px; font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif; color: #1e293b; line-height: 1.5;">
+          
+          <!-- ヘッダー -->
+          <tr>
+            <td style="background-color: #ffffff; padding: 20px 25px; border-bottom: 3px solid #f97316;">
+              <table width="100%" border="0" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td>
+                    <span style="font-size: 9px; font-weight: 900; color: #ea580c; letter-spacing: 0.15em; text-transform: uppercase;">LIXIL KURISAVA PLANT</span>
+                    <h1 style="margin: 3px 0 0 0; font-size: 18px; font-weight: 900; color: #0f172a; letter-spacing: -0.02em;">押出課 操業日報</h1>
+                  </td>
+                  <td align="right" style="vertical-align: bottom;">
+                    <span style="display: inline-block; padding: 4px 10px; background-color: #f97316; color: #ffffff; font-size: 11px; font-weight: 900; border-radius: 4px;">${shiftLabel}</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- サマリーバー -->
+          <tr>
+            <td style="padding: 12px 25px; background-color: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+              <table width="100%" border="0" cellpadding="0" cellspacing="0" style="font-size: 12px; font-weight: bold; color: #475569;">
+                <tr>
+                  <td width="33%">【作業日】 <span style="color: #0f172a;">${date}</span></td>
+                  <td width="33%">【直】 <span style="color: #0f172a;">${shiftLabel}</span></td>
+                  <td width="33%">【班】 <span style="color: #0f172a;">${group}</span></td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding: 20px 25px;">
+              <!-- サマリー統計 -->
+              <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-bottom: 25px; font-size: 12px;">
+                <tr>
+                  <td width="55%" style="padding-right: 10px; vertical-align: top;">
+                    <div style="padding: 15px; border: 1px solid #cbd5e1; border-radius: 8px; background-color: #f8fafc;">
+                      <table width="100%" border="0" cellpadding="0" cellspacing="0" style="text-align: center;">
+                        <tr>
+                          <td style="font-weight: bold; color: #475569; font-size: 11px; width: 34%;">当直直行率</td>
+                          <td style="font-weight: bold; color: #475569; font-size: 11px; border-left: 1px solid #e2e8f0; width: 33%;">総生産重量</td>
+                          <td style="font-weight: bold; color: #475569; font-size: 11px; border-left: 1px solid #e2e8f0; width: 33%;">直行不能重量</td>
+                        </tr>
+                        <tr>
+                          <td style="padding-top: 5px; vertical-align: top;">
+                            ${directRateMailHtml}
+                          </td>
+                          <td style="font-size: 16px; font-weight: 900; color: #2563eb; border-left: 1px solid #e2e8f0; padding-top: 5px; vertical-align: top;">
+                            ${totalGoodText}
+                          </td>
+                          <td style="font-size: 16px; font-weight: 900; color: #dc2626; border-left: 1px solid #e2e8f0; padding-top: 5px; vertical-align: top;">
+                            <div>${totalFailureText}</div>
+                            <div style="font-size: 9px; color: #64748b; font-weight: bold; margin-top: 4px; text-align: left; padding-left: 10px; line-height: 1.3;">
+                              <div>・不良: <span style="color: #dc2626;">${totalDefectText}</span></div>
+                              <div>・ロス: <span style="color: #7c3aed;">${totalLossText}</span></div>
+                            </div>
+                          </td>
+                        </tr>
+                      </table>
+                    </div>
+                  </td>
+                  <td width="45%" style="padding-left: 10px; vertical-align: top;">
+                    <div style="padding: 15px; border: 1px solid #cbd5e1; border-radius: 8px; background-color: #ffffff;">
+                      <div style="font-weight: 900; color: #ea580c; margin-bottom: 6px; font-size: 11px;">不良発生ワースト号機（Top3）</div>
+                      <ul style="margin: 0; padding: 0; list-style-type: none; font-size: 11px; line-height: 1.4;">
+                        ${worstListHtml}
+                      </ul>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+              
+              <!-- 1. 勤怠・人員 -->
+              <h3 style="font-size: 13px; font-weight: 900; color: #0f172a; border-left: 4px solid #0f172a; padding-left: 8px; margin: 0 0 10px 0; text-transform: uppercase;">1. 勤怠・人員状況</h3>
+              <table width="100%" border="0" cellpadding="8" cellspacing="0" style="font-size: 12px; background-color: #f8fafc; border-radius: 6px; margin-bottom: 20px; border: 1px solid #f1f5f9;">
+                <tr>
+                  <td width="15%" style="font-weight: bold; color: #64748b;">欠勤</td>
+                  <td style="color: #0f172a; font-weight: bold;">${absent || 'なし'}</td>
+                </tr>
+                <tr style="border-top: 1px solid #f1f5f9;">
+                  <td style="font-weight: bold; color: #64748b;">応援</td>
+                  <td style="color: #0f172a; font-weight: bold;">${support || 'なし'}</td>
+                </tr>
+              </table>
+
+              <!-- 2. 押出品質実績 -->
+              <h3 style="font-size: 13px; font-weight: 900; color: #0f172a; border-left: 4px solid #3b82f6; padding-left: 8px; margin: 0 0 10px 0; text-transform: uppercase;">2. 押出成形・品質実績</h3>
+              <table class="responsive-table" width="100%" border="0" cellpadding="0" cellspacing="0" style="font-size: 11px; border-collapse: collapse; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+                <thead>
+                  <tr style="background-color: #f1f5f9; font-weight: bold; color: #475569; border-bottom: 2px solid #cbd5e1;">
+                    <th style="padding: 8px; border-right: 1px solid #e2e8f0; width: 50px; text-align: center;">号機</th>
+                    <th style="padding: 8px; border-right: 1px solid #e2e8f0; text-align: left; width: 120px;">型番・色</th>
+                    <th style="padding: 8px; border-right: 1px solid #e2e8f0; text-align: left; width: 150px;">時間状況実績</th>
+                    <th style="padding: 8px; border-right: 1px solid #e2e8f0; text-align: right; width: 70px;">良品重量</th>
+                    <th style="padding: 8px; border-right: 1px solid #e2e8f0; text-align: right; width: 95px;">不良実績<br><span style="font-size: 9px; font-weight: normal; color: #64748b;">(内訳)</span></th>
+                    <th style="padding: 8px; border-right: 1px solid #e2e8f0; text-align: right; width: 95px;">ロス実績<br><span style="font-size: 9px; font-weight: normal; color: #64748b;">(内訳)</span></th>
+                    <th style="padding: 8px; text-align: left;">処置・対策（どう直したか）</th>
+                  </tr>
+                </thead>
+                <tbody style="color: #334155;">
+                  ${moldingRowsHtml}
+                </tbody>
+              </table>
+
+              <!-- 3. 粉砕・ペレタイザー -->
+              <h3 style="font-size: 13px; font-weight: 900; color: #0f172a; border-left: 4px solid #10b981; padding-left: 8px; margin: 0 0 10px 0; text-transform: uppercase;">3. 粉砕・ペレタイザー実績</h3>
+              <table width="100%" border="0" cellpadding="6" cellspacing="0" style="font-size: 11px; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #e2e8f0; text-align: center;">
+                <thead>
+                  <tr style="background-color: #f1f5f9; font-weight: bold; color: #475569;">
+                    <th style="border: 1px solid #e2e8f0; padding: 6px;">作業分類</th>
+                    <th style="border: 1px solid #e2e8f0; padding: 6px;">生産・粉砕量 (kg)</th>
+                    <th style="border: 1px solid #e2e8f0; padding: 6px;">稼働時間 (分)</th>
+                    <th style="border: 1px solid #e2e8f0; padding: 6px;">補足情報</th>
+                  </tr>
+                </thead>
+                <tbody style="font-weight: bold; color: #334155;">
+                  <tr>
+                    <td style="border: 1px solid #e2e8f0; padding: 6px; text-align: left;">ホワイト粉砕</td>
+                    <td style="border: 1px solid #e2e8f0; padding: 6px;">-</td>
+                    <td style="border: 1px solid #e2e8f0; padding: 6px; color: #ea580c;">${wScrap}</td>
+                    <td style="border: 1px solid #e2e8f0; padding: 6px; color: #64748b; font-size: 9px;">ホワイト粉砕重量は測定なし</td>
+                  </tr>
+                  <tr>
+                    <td style="border: 1px solid #e2e8f0; padding: 6px; text-align: left; color: #ea580c;">カラー粉砕</td>
+                    <td style="border: 1px solid #e2e8f0; padding: 6px; color: #ea580c;">${cScrapW}</td>
+                    <td style="border: 1px solid #e2e8f0; padding: 6px; color: #ea580c;">${cScrapT}</td>
+                    <td style="border: 1px solid #e2e8f0; padding: 6px; color: #64748b; font-size: 9px;">カラー粉砕実績</td>
+                  </tr>
+                  <tr>
+                    <td style="border: 1px solid #e2e8f0; padding: 6px; text-align: left; color: #ea580c;">ペレタイザー（製品）</td>
+                    <td style="border: 1px solid #e2e8f0; padding: 6px; color: #ea580c; font-size: 13px;">${pW}</td>
+                    <td style="border: 1px solid #e2e8f0; padding: 6px; color: #ea580c;">${pT}</td>
+                    <td style="border: 1px solid #e2e8f0; padding: 6px; color: #ea580c; font-size: 10px;">${pType}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <!-- 4. その他引継ぎ -->
+              <h3 style="font-size: 13px; font-weight: 900; color: #ea580c; border-left: 4px solid #ea580c; padding-left: 8px; margin: 0 0 10px 0; text-transform: uppercase;">4. その他特記・引継ぎ事項</h3>
+              <table width="100%" border="0" cellpadding="10" cellspacing="0" style="font-size: 12px; background-color: #fffaf8; border-radius: 6px; border: 1px solid #ffedd5;">
+                <tr>
+                  <td style="color: #1e293b; font-weight: bold; white-space: pre-wrap;">${otherText || '特記事項なし'}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- フッター -->
+          <tr>
+            <td style="padding: 15px 25px; text-align: center; border-top: 1px solid #e2e8f0; background-color: #fafafa;">
+              <p style="margin: 0; font-size: 9px; font-weight: bold; color: #94a3b8; letter-spacing: 0.08em; text-transform: uppercase;">
+                LIXIL EXTRUSION DEPARTMENT DAILY REPORT SYSTEM
+              </p>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+  }
+
+  // メールの送信
+  function sendReportMail() {
+    const btn = document.getElementById('report-send-btn');
+    const date = document.getElementById('report-target-date').value;
+    const shift = document.getElementById('report-target-shift').value;
+    const group = document.getElementById('report-target-group').value;
+    const to = document.getElementById('report-mail-to').value;
+    
+    const ccElement = document.getElementById('report-mail-cc');
+    const cc = ccElement ? ccElement.value : "";
+    
+    const subject = document.getElementById('report-mail-subject').value;
+    
+    if (!to) return alert("宛先 (To) を入力してください。");
+    if (!subject) return alert("件名を入力してください。");
+
+    const bodyHtml = compileFinalHtml();
+
+    const shiftLabel = shift === "1" ? "1直" : shift === "2" ? "2直" : shift === "3" ? "3直" : shift;
+    if (!confirm(`${date} ${shiftLabel} ${group} の操業日報メールを配信します。よろしいですか？`)) return;
+
+    btn.disabled = true;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> 送信中...';
+
+    google.script.run
+      .withSuccessHandler(res => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        if (res && res.success) {
+          if (typeof simulatorMailModal === 'undefined') {
+            alert("操業日報メールを宛先の皆様へ正常に送信しました！");
+          }
+        } else {
+          alert("メール送信エラー: " + (res ? res.message : "不明なエラー"));
+        }
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        alert("メール送信に失敗しました: " + err);
+      })
+      .sendFormattedEmail(to, cc, subject, bodyHtml);
+  }
+
+  // シミュレータ環境向けのメール実物ポップアップ制御
+  function showSimulatorMailModal(to, cc, subject, htmlContent) {
+    document.getElementById('modal-mail-to').innerText = to + (cc ? ` (CC: ${cc})` : '');
+    document.getElementById('modal-mail-subject').innerText = subject;
+    
+    const iframe = document.getElementById('mail-iframe');
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    doc.open();
+    doc.write(htmlContent);
+    doc.close();
+
+    const mailModal = new bootstrap.Modal(document.getElementById('simulator-mail-modal'));
+    mailModal.show();
+  }
+</script>

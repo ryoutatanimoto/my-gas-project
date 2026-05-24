@@ -1,0 +1,356 @@
+<div class="container-fluid p-0">
+  <!-- ヘッダー・設定エリア -->
+  <div class="bg-white p-4 rounded-3 shadow-sm mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h3 class="text-lg font-bold border-l-4 border-orange-500 ps-3 mb-0">マーキング本数実績 入力・修正（全ての現品票を発行後に行ってください）</h3>
+      <div id="status-badge" class="badge bg-slate-100 text-slate-500 fw-normal px-3 py-2 rounded-pill">
+        <i class="fa-solid fa-database me-1"></i> 読込前
+      </div>
+    </div>
+    
+    <div class="row g-3">
+      <div class="col-md-5">
+        <label class="form-label small fw-bold text-slate-600">押出日付</label>
+        <input type="date" id="marking-date" class="form-control form-control-lg">
+      </div>
+      <div class="col-md-5">
+        <label class="form-label small fw-bold text-slate-600">直（シフト）</label>
+        <select id="marking-shift" class="form-select form-select-lg">
+          <option value="1">1直</option>
+          <option value="2">2直</option>
+          <option value="3">3直</option>
+        </select>
+      </div>
+      <div class="col-md-2 d-flex align-items-end">
+        <button onclick="loadContainerList()" class="btn btn-primary w-full py-2 fw-bold shadow-sm">
+          <i class="fa-solid fa-cloud-arrow-down me-1"></i> 読込
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 一覧表示エリア -->
+  <div id="marking-table-container" class="bg-white rounded-3 shadow-sm overflow-hidden min-h-[400px]">
+    <div class="p-3 bg-slate-50 border-bottom d-flex justify-content-between align-items-center">
+      <div class="d-flex align-items-center">
+        <span class="text-sm fw-bold text-slate-500 me-3">
+          <i class="fa-solid fa-list-check me-2"></i>対象一覧
+        </span>
+        <div id="record-count" class="badge bg-slate-200 text-slate-700">0 件</div>
+      </div>
+      <div class="text-xs text-slate-400 italic">
+        ※入力済みの数値は自由に変更して再保存できます
+      </div>
+    </div>
+    
+    <div class="table-responsive">
+      <!-- table-hoverクラスを削除しました -->
+      <table class="table align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-4 text-center" style="width: 10%;">対象</th>
+            <th style="width: 10%;">号機</th>
+            <th style="width: 25%;">型番</th>
+            <th style="width: 20%;">容器NO</th>
+            <th style="width: 35%;">マーキング本数</th>
+          </tr>
+        </thead>
+        <tbody id="marking-list-body">
+          <tr>
+            <td colspan="5" class="text-center py-10 text-slate-400">
+              <div class="animate-pulse"><i class="fa-solid fa-arrow-pointer me-2"></i>日付と直を確認し、「読込」ボタンを押してください</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 保存ボタンエリア -->
+    <div id="save-area" class="p-4 bg-slate-50 border-top text-end hidden">
+      <button id="save-btn" onclick="saveAllMarkingData()" class="btn btn-orange-600 px-5 py-3 text-white fw-bold shadow-lg hover:bg-orange-700 transition-all rounded-xl">
+        <i class="fa-solid fa-cloud-arrow-up me-2"></i> 実績を保存・更新する
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .btn-orange-600 { background-color: #ea580c; border: none; }
+  .btn-orange-600:hover { background-color: #c2410c; }
+  .input-success { border-color: #10b981 !important; background-color: #f0fdf4 !important; }
+  .input-modified { border-color: #fb923c !important; background-color: #fff7ed !important; }
+  
+  .loader-spinner {
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255,255,255,.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+    display: inline-block;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<script>
+/**
+ * ページ読み込み時の初期化
+ */
+document.addEventListener('DOMContentLoaded', () => {
+  const now = new Date();
+  
+  // 日付の初期設定 (YYYY-MM-DD)
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const dateInput = document.getElementById('marking-date');
+  if (dateInput) dateInput.value = `${year}-${month}-${day}`;
+
+  // 直（シフト）の初期設定
+  const hours = now.getHours();
+  const minutes = now.getMinutes();
+  const totalMinutes = hours * 60 + minutes;
+
+  let shiftValue = "1";
+  if (totalMinutes >= (17 * 60 + 5)) { // 17:05以降
+    shiftValue = "3";
+  } else if (totalMinutes >= (8 * 60 + 30)) { // 8:30以降
+    shiftValue = "2";
+  } else { // 0:00〜8:29
+    shiftValue = "1";
+  }
+
+  const shiftInput = document.getElementById('marking-shift');
+  if (shiftInput) shiftInput.value = shiftValue;
+  
+  // ※自動読み込みは行わず、ユーザーが「読込」ボタンを押すまで待機します
+});
+
+/**
+ * リストの取得
+ */
+function loadContainerList() {
+  const date = document.getElementById('marking-date').value;
+  const shift = document.getElementById('marking-shift').value;
+  const tbody = document.getElementById('marking-list-body');
+  const saveArea = document.getElementById('save-area');
+  const statusBadge = document.getElementById('status-badge');
+  
+  if (!date || !shift) return;
+
+  tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10"><div class="spinner-border text-orange-500" role="status"></div><div class="mt-2 text-slate-500">BigQueryからデータを同期中...</div></td></tr>`;
+  saveArea.classList.add('hidden');
+  statusBadge.innerHTML = `<i class="fa-solid fa-sync fa-spin me-1"></i> 同期中`;
+  statusBadge.className = "badge bg-orange-100 text-orange-600 fw-normal px-3 py-2 rounded-pill";
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler((data) => {
+        renderMarkingTable(data);
+        statusBadge.innerHTML = `<i class="fa-solid fa-check-circle me-1"></i> 同期完了`;
+        statusBadge.className = "badge bg-green-100 text-green-600 fw-normal px-3 py-2 rounded-pill";
+      })
+      .withFailureHandler((err) => {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-danger">エラー: ${err.message}</td></tr>`;
+        statusBadge.innerHTML = `<i class="fa-solid fa-exclamation-triangle me-1"></i> 同期エラー`;
+        statusBadge.className = "badge bg-red-100 text-red-600 fw-normal px-3 py-2 rounded-pill";
+      })
+      .getMarkingContainerList(date, shift);
+  } else {
+    // テスト用：既存データがある場合とない場合の混在
+    setTimeout(() => {
+      const mockData = [
+        { Machine: "1", Kataban: "TEST-PROD-001", ContainerNo: "C-101", Count: 150 },
+        { Machine: "1", Kataban: "TEST-PROD-002", ContainerNo: "C-102", Count: null },
+        { Machine: "2", Kataban: "TEST-PROD-003", ContainerNo: "C-105", Count: 0 },
+        { Machine: "2", Kataban: "TEST-PROD-004", ContainerNo: "C-108", Count: 85 }
+      ];
+      renderMarkingTable(mockData);
+      statusBadge.innerHTML = `<i class="fa-solid fa-vial me-1"></i> テストモード`;
+    }, 800);
+  }
+}
+
+/**
+ * テーブルの描画
+ */
+function renderMarkingTable(data) {
+  const tbody = document.getElementById('marking-list-body');
+  const countBadge = document.getElementById('record-count');
+  const saveArea = document.getElementById('save-area');
+  
+  if (!tbody) return;
+
+  if (!data || data.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-10 text-slate-400">該当するデータがありません。</td></tr>`;
+    if (countBadge) countBadge.innerText = '0 件';
+    if (saveArea) saveArea.classList.add('hidden');
+    return;
+  }
+
+  if (countBadge) countBadge.innerText = `${data.length} 件`;
+  if (saveArea) saveArea.classList.remove('hidden');
+  
+  tbody.innerHTML = data.map((row, index) => {
+    // 既存実績があり、かつ1本以上入力されている場合を「対象」とする
+    const hasValue = row.Count !== null && row.Count !== undefined;
+    const isTarget = hasValue && row.Count > 0;
+    
+    const inputClass = isTarget ? 'input-success' : '';
+    const displayValue = isTarget ? row.Count : '';
+    const badge = hasValue ? '<span class="badge bg-green-500 ms-2" style="font-size:0.6rem">登録済</span>' : '';
+    
+    const checkedAttr = isTarget ? 'checked' : '';
+    const disabledAttr = isTarget ? '' : 'disabled';
+    
+    // チェックなしの行は、ホバーと同じような「薄い灰色(bg-slate-100)」に変更
+    const rowClass = isTarget ? '' : 'bg-slate-100';
+
+    return `
+      <tr id="row-${index}" class="${rowClass} transition-all">
+        <td class="ps-4 text-center">
+          <input class="form-check-input marking-checkbox border-slate-400 shadow-sm" type="checkbox" style="transform: scale(1.5); cursor: pointer;" id="check-${index}" onchange="toggleInput(${index})" ${checkedAttr}>
+        </td>
+        <td>
+          <span class="badge bg-slate-200 text-slate-700 fw-bold border border-slate-300">${row.Machine || '-'}</span>
+        </td>
+        <td>
+          <div class="d-flex align-items-center">
+            <span class="fw-bold text-slate-700">${row.Kataban}</span>
+            ${badge}
+          </div>
+          <input type="hidden" class="row-kataban" value="${row.Kataban}">
+        </td>
+        <td>
+          <code class="bg-slate-100 px-2 py-1 rounded text-slate-600">${row.ContainerNo}</code>
+          <input type="hidden" class="row-container" value="${row.ContainerNo}">
+        </td>
+        <td>
+          <div class="input-group">
+            <input type="number" 
+                   id="input-${index}"
+                   class="form-control form-control-lg marking-input ${inputClass}" 
+                   placeholder="本数を入力" 
+                   value="${displayValue}"
+                   min="0"
+                   ${disabledAttr}
+                   oninput="handleInput(this, ${hasValue})">
+            <span class="input-group-text">本</span>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+/**
+ * チェックボックス切り替え時の動作
+ */
+function toggleInput(index) {
+  const checkbox = document.getElementById(`check-${index}`);
+  const input = document.getElementById(`input-${index}`);
+  const row = document.getElementById(`row-${index}`);
+  
+  if (checkbox.checked) {
+    input.disabled = false;
+    input.focus(); // チェックを入れたらすぐ入力できるようにフォーカス
+    row.classList.remove('bg-slate-100');
+  } else {
+    input.disabled = true;
+    input.value = '';
+    input.classList.remove('input-modified', 'input-success');
+    row.classList.add('bg-slate-100');
+  }
+}
+
+/**
+ * 入力時の色変更ハンドラ
+ */
+function handleInput(el, isExisting) {
+  el.classList.remove('input-success');
+  el.classList.add('input-modified');
+}
+
+/**
+ * 保存実行
+ */
+function saveAllMarkingData() {
+  const date = document.getElementById('marking-date').value;
+  const shift = document.getElementById('marking-shift').value;
+  const btn = document.getElementById('save-btn');
+  const rows = document.querySelectorAll('#marking-list-body tr');
+  
+  const payload = [];
+  let hasEmptyChecked = false;
+
+  rows.forEach(row => {
+    const kataban = row.querySelector('.row-kataban')?.value;
+    const container = row.querySelector('.row-container')?.value;
+    const checkbox = row.querySelector('.marking-checkbox');
+    const input = row.querySelector('.marking-input');
+
+    if (kataban && container) {
+      let countVal = 0;
+      
+      if (checkbox.checked) {
+        if (input.value === "") {
+          hasEmptyChecked = true; // チェックを入れたのに空欄の場合はエラーフラグを立てる
+        } else {
+          countVal = parseInt(input.value, 10);
+        }
+      } else {
+        countVal = 0; // チェックなしは0として保存
+      }
+
+      payload.push({
+        date: date,
+        shift: shift,
+        kataban: kataban,
+        containerNo: container,
+        count: countVal
+      });
+    }
+  });
+
+  if (hasEmptyChecked) {
+    alert('対象としてチェックを入れた行には、マーキング本数を入力してください。');
+    return;
+  }
+
+  if (payload.length === 0) {
+    alert('保存する対象のデータがありません。');
+    return;
+  }
+
+  if (!confirm('表示されている内容でLDP(BigQuery)を更新しますか？\n既存のデータは最新の内容で上書きされます。')) return;
+
+  const originalContent = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `<span class="loader-spinner"></span> データベース更新中...`;
+
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler((res) => {
+        alert('LDPのデータを正常に更新しました。');
+        btn.disabled = false;
+        btn.innerHTML = originalContent;
+        loadContainerList(); // 最新状態を再取得
+      })
+      .withFailureHandler((err) => {
+        alert('保存エラー: ' + err.message);
+        btn.disabled = false;
+        btn.innerHTML = originalContent;
+      })
+      .saveMarkingDataToBQ(payload);
+  } else {
+    setTimeout(() => {
+      alert('【テストモード】更新完了');
+      btn.disabled = false;
+      btn.innerHTML = originalContent;
+      loadContainerList();
+    }, 1000);
+  }
+}
+</script>

@@ -1,0 +1,445 @@
+<div class="container-fluid p-0 color-input-module">
+  <!-- ヘッダー・設定エリア -->
+  <div class="bg-white p-4 rounded-3 shadow-sm mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h3 class="text-lg font-bold border-l-4 border-orange-500 ps-3 mb-0">色調実績入力 (b値)</h3>
+      <div id="color-status-badge" class="badge bg-slate-100 text-slate-500 fw-normal px-3 py-2 rounded-pill">
+        <i class="fa-solid fa-database me-1"></i> 読込前
+      </div>
+    </div>
+    
+    <div class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label small fw-bold text-slate-600">押出日付</label>
+        <input type="date" id="color-date" onchange="ColorInput.resetView()" class="form-control form-control-lg shadow-sm">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label small fw-bold text-slate-600">直（シフト）</label>
+        <select id="color-shift" onchange="ColorInput.resetView()" class="form-select form-select-lg shadow-sm">
+          <option value="1">1直 </option>
+          <option value="2">2直 </option>
+          <option value="3">3直 </option>
+        </select>
+      </div>
+      <div class="col-md-4 d-flex align-items-end">
+        <button onclick="ColorInput.load()" class="btn btn-primary w-100 py-2 fw-bold shadow-sm">
+          <i class="fa-solid fa-cloud-arrow-down me-1"></i> 読込
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- メインコンテンツエリア -->
+  <div id="color-main-content" class="hidden animate-fadeIn">
+    
+    <!-- 新配合フラグ設定エリア -->
+    <div class="bg-white p-4 rounded-3 shadow-sm mb-4 border-top border-4 border-orange-400">
+      <div class="d-flex align-items-center mb-3">
+        <span class="text-xs font-bold text-orange-600 tracking-wider">
+          <i class="fa-solid fa-flask-vial me-2"></i>新配合 設定 (チェックした号機は1h毎測定)
+        </span>
+      </div>
+      <div id="new-comp-selectors" class="d-flex flex-wrap gap-2">
+        <!-- JSで生成 -->
+      </div>
+    </div>
+
+    <!-- 環境データ & 管理限界 -->
+    <div class="row g-4 mb-4">
+      <div class="col-md-6">
+        <div class="bg-white p-4 rounded-3 shadow-sm h-100">
+          <div class="small fw-bold text-slate-500 mb-3 border-bottom pb-2">
+            <i class="fa-solid fa-temperature-half me-2"></i>環境計測値
+          </div>
+          <div class="row g-3">
+            <div class="col-6">
+              <label class="form-label text-xs fw-bold">気温</label>
+              <input type="number" id="env-temp" step="0.1" class="form-control bg-slate-50 fw-bold shadow-sm" placeholder="-" onkeydown="ColorInput.handleEnter(event)">
+            </div>
+            <div class="col-6">
+              <label class="form-label text-xs fw-bold">湿度</label>
+              <input type="number" id="env-humid" step="0.1" class="form-control bg-slate-50 fw-bold shadow-sm" placeholder="-" onkeydown="ColorInput.handleEnter(event)">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="bg-white p-4 rounded-3 shadow-sm h-100">
+          <div class="small fw-bold text-slate-500 mb-3 border-bottom pb-2 d-flex justify-content-between align-items-center">
+            <span><i class="fa-solid fa-gauge-high me-2 text-orange-500"></i>管理限界値 </span>
+            <span id="limit-msg" class="text-[10px] text-orange-600 fw-bold"></span>
+          </div>
+          <div class="row g-3">
+            <div class="col-6">
+              <label class="form-label text-xs fw-bold">上限 (b値)</label>
+              <input type="number" id="limit-upper" step="0.01" class="form-control fw-bold border-orange-200 shadow-sm" placeholder="-" onkeydown="ColorInput.handleEnter(event)">
+            </div>
+            <div class="col-6">
+              <label class="form-label text-xs fw-bold">下限 (b値)</label>
+              <input type="number" id="limit-lower" step="0.01" class="form-control fw-bold border-orange-200 shadow-sm" placeholder="-" onkeydown="ColorInput.handleEnter(event)">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 入力テーブルエリア -->
+    <div class="bg-white rounded-3 shadow-sm overflow-hidden mb-4">
+      <div class="p-3 bg-slate-50 border-bottom d-flex justify-content-between align-items-center">
+        <span class="text-sm fw-bold text-slate-500">
+          <i class="fa-solid fa-table me-2"></i>b値 実績入力
+        </span>
+        <div class="text-xs text-slate-400 italic">※Enterキーで入力エリアを移動できます</div>
+      </div>
+      <div class="table-responsive custom-scroll">
+        <table class="table align-middle mb-0 min-w-[1000px] table-borderless">
+          <thead class="table-light border-bottom">
+            <tr id="color-header-row">
+              <!-- JS生成 -->
+            </tr>
+          </thead>
+          <tbody id="color-input-body">
+            <!-- JS生成 -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 保存ボタン -->
+    <div class="bg-white p-4 rounded-3 shadow-sm text-center mb-5 border-top border-4 border-orange-500">
+      <button id="color-save-btn" onclick="ColorInput.save()" class="btn btn-orange-600 px-5 py-3 text-white fw-bold shadow-lg transition-all rounded-xl">
+        <i class="fa-solid fa-cloud-arrow-up me-2"></i> 実績をLDP(BigQuery)に保存・更新する
+      </button>
+      <div class="mt-2 text-xs text-slate-400 fw-bold italic">
+        ※空欄は「未測定(null)」として保存されます
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .animate-fadeIn { animation: fadeIn 0.4s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  
+  .btn-orange-600 { background-color: #ea580c; border: none; }
+  .btn-orange-600:hover { background-color: #c2410c; transform: translateY(-2px); }
+  
+  .custom-scroll::-webkit-scrollbar { height: 8px; }
+  .custom-scroll::-webkit-scrollbar-track { background: #f8fafc; }
+  .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+  
+  .new-comp-chip { cursor: pointer; user-select: none; }
+  .new-comp-chip input:checked + div { 
+    background-color: #ea580c !important; 
+    border-color: #c2410c !important; 
+    color: white !important; 
+    box-shadow: 0 4px 10px rgba(234, 88, 12, 0.3);
+  }
+  .new-comp-chip div {
+    border: 2px solid #e2e8f0;
+    padding: 0.5rem 1rem;
+    border-radius: 50px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    background-color: white;
+    color: #64748b;
+    transition: all 0.2s;
+  }
+  
+  .sticky-col { position: sticky; left: 0; z-index: 5; background-color: white; }
+  .table thead th.sticky-col { z-index: 6; background-color: #f8fafc; }
+  
+  .row-hour-extra { background-color: #fcfcfc; }
+  .cell-new-comp { background-color: #fffaf0 !important; }
+  
+  .color-val { border: 1px solid #e2e8f0; text-align: center; font-weight: bold; padding: 0.5rem; transition: all 0.2s; background-color: white; border-radius: 6px; }
+  .color-val:focus { border-color: #ea580c; background-color: #fff !important; outline: none; box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.15); z-index: 10; }
+  
+  .cell-disabled { background-color: transparent !important; border: none !important; }
+
+  input:read-only { background-color: #f1f5f9 !important; color: #64748b !important; cursor: not-allowed; border-color: #e2e8f0 !important; }
+  #limit-upper:not([readonly]), #limit-lower:not([readonly]) { background-color: #fff7ed !important; color: #ea580c !important; border-color: #fdba74 !important; }
+</style>
+
+<script>
+  const ColorInput = {
+    machines: ["1号機", "2号機", "3号機", "4号機", "5号機", "6号機", "7号機", "8A", "8B", "9号機", "12号機"],
+    
+    shifts: {
+      "1": { std: ["1:00", "3:00", "5:00", "7:00"], all: ["1:00", "2:00", "3:00", "4:00", "5:00", "6:00", "7:00", "8:00"] },
+      "2": { std: ["9:00", "11:00", "13:00", "15:00"], all: ["9:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00"] },
+      "3": { std: ["18:00", "20:00", "22:00", "24:00"], all: ["17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00", "24:00"] }
+    },
+
+    newCompMachines: new Set(),
+
+    init() {
+      const now = new Date();
+      const today = now.toLocaleDateString('sv-SE');
+      document.getElementById('color-date').value = today;
+      
+      const hour = now.getHours();
+      let shift = "1";
+      if (hour >= 8 && hour < 16) shift = "2";
+      else if (hour >= 16 || hour < 0) shift = "3";
+      document.getElementById('color-shift').value = shift;
+      
+      this.renderMachineSelectors();
+    },
+
+    resetView() {
+      document.getElementById('color-main-content').classList.add('hidden');
+      const badge = document.getElementById('color-status-badge');
+      badge.innerHTML = `<i class="fa-solid fa-database me-1"></i> 読込前`;
+      badge.className = "badge bg-slate-100 text-slate-500 fw-normal px-3 py-2 rounded-pill";
+    },
+
+    renderMachineSelectors() {
+      const container = document.getElementById('new-comp-selectors');
+      container.innerHTML = this.machines.map(m => `
+        <label class="new-comp-chip">
+          <input type="checkbox" class="d-none" value="${m}" onchange="ColorInput.toggleNewComp('${m}')">
+          <div class="transition-all">
+            ${m}
+          </div>
+        </label>
+      `).join('');
+    },
+
+    toggleNewComp(m) {
+      if (this.newCompMachines.has(m)) this.newCompMachines.delete(m);
+      else this.newCompMachines.add(m);
+      
+      const shift = document.getElementById('color-shift').value;
+      this.renderTable(shift);
+    },
+
+    load() {
+      const date = document.getElementById('color-date').value;
+      const shift = document.getElementById('color-shift').value;
+      const badge = document.getElementById('color-status-badge');
+
+      if (!date) return;
+
+      badge.innerHTML = `<i class="fa-solid fa-sync fa-spin me-1"></i> 同期中`;
+      badge.className = "badge bg-orange-100 text-orange-600 fw-normal px-3 py-2 rounded-pill";
+      
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler(res => {
+            this.renderTable(shift);
+            document.getElementById('color-main-content').classList.remove('hidden');
+            
+            const up = document.getElementById('limit-upper');
+            const lw = document.getElementById('limit-lower');
+            const msg = document.getElementById('limit-msg');
+            
+            up.value = res.dayLimits.upper || '';
+            lw.value = res.dayLimits.lower || '';
+
+            if (shift !== "1") {
+              up.readOnly = true;
+              lw.readOnly = true;
+              // メッセージの改善：当日の設定か、過去の設定かを表示
+              if (res.dayLimits.limitDate === date) {
+                msg.innerText = "※1直の限界値を表示中（読取専用）";
+              } else if (res.dayLimits.limitDate) {
+                msg.innerText = `※前回設定(${res.dayLimits.limitDate})を引継中（読取専用）`;
+              } else {
+                msg.innerText = "※限界値が設定されていません";
+              }
+            } else {
+              up.readOnly = false;
+              lw.readOnly = false;
+              msg.innerText = "";
+            }
+
+            if (res.records && res.records.length > 0) {
+              document.getElementById('env-temp').value = res.records[0].Temp || '';
+              document.getElementById('env-humid').value = res.records[0].Humid || '';
+              
+              res.records.forEach(r => {
+                this.machines.forEach(m => {
+                  const cleanName = "M" + m.replace('号機', ''); 
+                  const input = document.querySelector(`.color-val[data-time="${r.EXTTime}"][data-machine="${m}"]`);
+                  if (input && r[cleanName] !== null && r[cleanName] !== undefined) {
+                    input.value = r[cleanName];
+                  }
+                  if (r.IsNewComp === true || r.IsNewComp === "true") {
+                     this.setNewCompFlag(m, true);
+                  }
+                });
+              });
+              badge.innerHTML = `<i class="fa-solid fa-check-circle me-1"></i> 同期完了`;
+              badge.className = "badge bg-green-100 text-green-600 fw-normal px-3 py-2 rounded-pill";
+            } else {
+              badge.innerHTML = `<i class="fa-solid fa-plus-circle me-1"></i> 新規入力`;
+              badge.className = "badge bg-blue-100 text-blue-600 fw-normal px-3 py-2 rounded-pill";
+            }
+          })
+          .withFailureHandler(err => alert(err))
+          .getColorRecords(date, shift);
+      }
+    },
+
+    setNewCompFlag(m, active) {
+        const checkbox = document.querySelector(`#new-comp-selectors input[value="${m}"]`);
+        if (checkbox) {
+            checkbox.checked = active;
+            if (active) this.newCompMachines.add(m); else this.newCompMachines.delete(m);
+            this.renderTable(document.getElementById('color-shift').value);
+        }
+    },
+
+    renderTable(shift) {
+      const isAnyNewComp = this.newCompMachines.size > 0;
+      const times = isAnyNewComp ? this.shifts[shift].all : this.shifts[shift].std;
+      const stdTimes = this.shifts[shift].std;
+
+      const headerRow = document.getElementById('color-header-row');
+      const tbody = document.getElementById('color-input-body');
+
+      headerRow.innerHTML = `
+        <th class="ps-4 text-center sticky-col border-bottom" style="width: 100px;">時間</th>
+        ${this.machines.map(m => {
+          const isNC = this.newCompMachines.has(m);
+          return `<th class="text-center border-bottom ${isNC ? 'text-orange-600 bg-orange-50' : ''}">
+            ${m}${isNC ? '<br><span class="badge bg-orange-600 text-white p-1" style="font-size:0.5rem">新配合</span>' : ''}
+          </th>`;
+        }).join('')}
+      `;
+
+      tbody.innerHTML = times.map(t => {
+        const isExtraRow = !stdTimes.includes(t);
+        return `
+          <tr class="${isExtraRow ? 'row-hour-extra' : ''} transition-all">
+            <td class="ps-4 text-center fw-bold sticky-col border-end ${isExtraRow ? 'text-slate-400' : 'text-slate-700'}">
+              ${t}
+            </td>
+            ${this.machines.map(m => {
+              const isNC = this.newCompMachines.has(m);
+              const isDisabled = isExtraRow && !isNC;
+              
+              if (isDisabled) {
+                return `<td class="p-1 cell-disabled"></td>`;
+              }
+              
+              return `
+                <td class="p-1 ${isNC ? 'cell-new-comp' : ''}">
+                  <input type="number" data-time="${t}" data-machine="${m}" 
+                         step="0.01"
+                         placeholder="-"
+                         class="form-control color-val shadow-sm"
+                         onkeydown="ColorInput.handleEnter(event)">
+                </td>
+              `;
+            }).join('')}
+          </tr>
+        `;
+      }).join('');
+    },
+
+    handleEnter(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const inputs = Array.from(document.querySelectorAll('.color-val, #env-temp, #env-humid, #limit-upper, #limit-lower')).filter(el => {
+          return !el.disabled && !el.readOnly && el.offsetParent !== null;
+        });
+        const idx = inputs.indexOf(e.target);
+        if (idx > -1 && idx < inputs.length - 1) {
+          inputs[idx + 1].focus();
+          inputs[idx + 1].select();
+        }
+      }
+    },
+
+    save() {
+      const date = document.getElementById('color-date').value;
+      const shift = document.getElementById('color-shift').value;
+      const temp = document.getElementById('env-temp').value;
+      const humid = document.getElementById('env-humid').value;
+      const upper = document.getElementById('limit-upper').value;
+      const lower = document.getElementById('limit-lower').value;
+      const btn = document.getElementById('color-save-btn');
+
+      const isAnyNewComp = this.newCompMachines.size > 0;
+      const times = isAnyNewComp ? this.shifts[shift].all : this.shifts[shift].std;
+      const records = [];
+
+      let hasMistakeWarning = false;
+      const checkVal = (val, min, max) => val !== '' && (parseFloat(val) < min || parseFloat(val) > max);
+
+      if (checkVal(temp, 10, 50) || checkVal(humid, 10, 80) || 
+          checkVal(upper, 0, 4) || checkVal(lower, 0, 2)) {
+          hasMistakeWarning = true;
+      }
+
+      times.forEach(t => {
+        const rowData = {
+          EXTDate: date,
+          EXTShift: parseInt(shift),
+          EXTTime: t,
+          Temp: temp === '' ? null : parseFloat(temp),
+          Humid: humid === '' ? null : parseFloat(humid),
+          UpperLimit: upper === '' ? null : parseFloat(upper),
+          LowerLimit: lower === '' ? null : parseFloat(lower)
+        };
+
+        let hasData = false;
+        this.machines.forEach(m => {
+          const input = document.querySelector(`.color-val[data-time="${t}"][data-machine="${m}"]`);
+          const val = (input) ? input.value : '';
+          const cleanName = "M" + m.replace('号機', ''); 
+          
+          rowData[cleanName] = (val === '') ? null : parseFloat(val);
+          if (val !== '') {
+            hasData = true;
+            if (parseFloat(val) > 6) hasMistakeWarning = true;
+          }
+        });
+
+        if (hasData) records.push(rowData);
+      });
+
+      if (records.length === 0 && (temp !== '' || humid !== '')) {
+         const dummyRow = {
+            EXTDate: date, EXTShift: parseInt(shift), EXTTime: times[0],
+            Temp: parseFloat(temp), Humid: parseFloat(humid),
+            UpperLimit: upper === '' ? null : parseFloat(upper),
+            LowerLimit: lower === '' ? null : parseFloat(lower)
+         };
+         this.machines.forEach(m => dummyRow["M" + m.replace('号機', '')] = null);
+         records.push(dummyRow);
+      }
+
+      if (records.length === 0) return alert("保存するデータがありません。");
+
+      if (hasMistakeWarning) {
+        if (!confirm("小数点の間違いがある可能性があります。そのまま保存しますか？")) return;
+      } else {
+        if (!confirm("BigQueryの実績データを更新しますか？\n空欄は「null」として保存されます。")) return;
+      }
+
+      const originalText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> 更新中...`;
+
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler(res => {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+            if (res.success) {
+              alert("LDP(BigQuery)のデータを正常に更新しました。");
+              this.load();
+            } else {
+              alert("保存エラー: " + res.error);
+            }
+          })
+          .saveColorRecords(records);
+      }
+    }
+  };
+
+  document.addEventListener('DOMContentLoaded', () => ColorInput.init());
+</script>

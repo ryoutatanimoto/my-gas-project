@@ -1,0 +1,260 @@
+<!-- Chart.js ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div class="apm-portal-module animate-fadeIn space-y-6 pb-20">
+  
+  <!-- ヘッダーエリア -->
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div class="flex items-center gap-3">
+      <div class="bg-slate-900 text-white p-3 rounded-2xl shadow-lg">
+        <i class="fa-solid fa-chart-line text-xl accent-orange"></i>
+      </div>
+      <div>
+        <h1 class="text-xl font-black text-slate-800 tracking-tighter">APM分析：原価・生産性モニタ</h1>
+        <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-slate-400">Advanced Cost & Productivity Analysis</p>
+      </div>
+    </div>
+    <div class="flex gap-2">
+      <input type="month" id="analysis-month" onchange="loadAnalysis()" class="border-2 border-slate-400 rounded-xl px-4 py-2 font-black text-sm text-slate-700 bg-white shadow-sm">
+      <button onclick="loadAnalysis()" class="bg-slate-900 text-white px-4 py-2 rounded-xl font-black text-xs hover:bg-slate-800 transition shadow-md">
+        <i class="fa-solid fa-arrows-rotate mr-1"></i> 再集計
+      </button>
+    </div>
+  </div>
+
+  <!-- KPIサマリー 第一段（重量・出来高） -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="bg-white p-4 rounded-2xl border-2 border-slate-400 shadow-sm border-l-8 border-l-slate-800">
+      <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">コンパウンド投入量</p>
+      <p class="text-2xl font-black text-slate-900"><span id="kpi-comp-weight">0</span> <small class="text-sm">kg</small></p>
+    </div>
+    <div class="bg-white p-4 rounded-2xl border-2 border-slate-400 shadow-sm border-l-8 border-l-blue-600">
+      <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">副原料投入量</p>
+      <p class="text-2xl font-black text-slate-900"><span id="kpi-sub-weight">0</span> <small class="text-sm">kg</small></p>
+    </div>
+    <div class="bg-white p-4 rounded-2xl border-2 border-slate-400 shadow-sm border-l-8 border-l-orange-500">
+      <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">予定原価出来高 (売上概算)</p>
+      <p class="text-2xl font-black text-slate-900">¥<span id="kpi-planned-val">0</span></p>
+    </div>
+    <div class="bg-white p-4 rounded-2xl border-2 border-slate-400 shadow-sm border-l-8 border-l-emerald-600">
+      <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">kgあたり生産高</p>
+      <p class="text-2xl font-black text-slate-900">¥<span id="kpi-val-per-kg">0</span><small class="text-sm">/kg</small></p>
+    </div>
+  </div>
+
+  <!-- KPIサマリー 第二段（原価・比率） -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="bg-white p-4 rounded-2xl border-2 border-slate-400 shadow-sm">
+      <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">コンパウンド原価</p>
+      <p class="text-xl font-black text-slate-700">¥<span id="kpi-comp-cost">0</span></p>
+    </div>
+    <div class="bg-white p-4 rounded-2xl border-2 border-slate-400 shadow-sm">
+      <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">副原料原価</p>
+      <p class="text-xl font-black text-slate-700">¥<span id="kpi-sub-cost">0</span></p>
+    </div>
+    <div class="bg-white p-4 rounded-2xl border-2 border-slate-400 shadow-sm">
+      <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">返品額</p>
+      <p class="text-xl font-black text-red-600">¥<span id="kpi-returns">0</span></p>
+    </div>
+    <div class="bg-white p-4 rounded-2xl border-2 border-slate-400 shadow-sm bg-orange-50 border-orange-400">
+      <p class="text-[10px] font-black text-orange-600 uppercase tracking-widest mb-1">累計原材料費率</p>
+      <p class="text-3xl font-black text-orange-700"><span id="kpi-total-cost-ratio">0</span> <small class="text-sm">%</small></p>
+    </div>
+  </div>
+
+  <!-- グラフセクション -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 bg-white p-6 rounded-2xl border-2 border-slate-400 shadow-sm">
+      <h3 class="font-black text-sm text-slate-700 mb-4 uppercase tracking-tighter border-b border-slate-200 pb-2">原材料費率・kg単価 推移</h3>
+      <div class="h-72">
+        <canvas id="chart-main-trend"></canvas>
+      </div>
+    </div>
+    <div class="bg-white p-6 rounded-2xl border-2 border-slate-400 shadow-sm">
+      <h3 class="font-black text-sm text-slate-700 mb-4 uppercase tracking-tighter border-b border-slate-200 pb-2">生産構成 (重量)</h3>
+      <div class="h-72">
+        <canvas id="chart-prod-mix"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- 詳細一覧テーブル -->
+  <div class="bg-white rounded-2xl border-2 border-slate-400 shadow-sm overflow-hidden">
+    <div class="bg-slate-200 px-5 py-3 border-b-2 border-slate-400 flex justify-between items-center">
+      <span class="text-sm font-black text-slate-800 uppercase tracking-tighter">APM実績詳細ログ</span>
+      <div class="flex gap-2">
+         <span class="bg-white px-2 py-1 rounded border border-slate-300 text-[10px] font-black">W: ホワイト</span>
+         <span class="bg-slate-800 text-white px-2 py-1 rounded text-[10px] font-black">C: カラー</span>
+      </div>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse table-fixed min-w-[1200px]">
+        <thead class="bg-slate-50 text-[10px] font-black text-slate-500 uppercase border-b border-slate-300">
+          <tr>
+            <th class="p-3 w-24">日付</th>
+            <th class="p-3 text-right">CP重量</th>
+            <th class="p-3 text-right">副資重量</th>
+            <th class="p-3 text-right bg-blue-50">W生産(kg)</th>
+            <th class="p-3 text-right bg-orange-50">C生産(kg)</th>
+            <th class="p-3 text-right">CP原価(¥)</th>
+            <th class="p-3 text-right">副資原価(¥)</th>
+            <th class="p-3 text-right text-red-500">返品(¥)</th>
+            <th class="p-3 text-right font-black">生産高(¥)</th>
+            <th class="p-3 text-right accent-orange">費率(単日)</th>
+            <th class="p-3 text-right accent-orange">費率(累計)</th>
+          </tr>
+        </thead>
+        <tbody id="analysis-table-body" class="divide-y divide-slate-200 font-black text-[11px] text-slate-700">
+          <!-- JS dynamic content -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<style>
+  .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .accent-orange { color: #f97316; }
+</style>
+
+<script>
+  let apmCharts = {};
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const now = new Date();
+    document.getElementById('analysis-month').value = now.toISOString().substring(0, 7);
+    loadAnalysis();
+  });
+
+  function loadAnalysis() {
+    const month = document.getElementById('analysis-month').value;
+    if (!month) return;
+
+    if (typeof google !== 'undefined' && google.script) {
+      google.script.run.withSuccessHandler(renderAnalysis).getApmAnalysisData(month);
+    } else {
+      // テスト用ダミーデータ生成
+      renderAnalysis(generateDummyData(month));
+    }
+  }
+
+  function renderAnalysis(data) {
+    // KPIサマリーの更新
+    document.getElementById('kpi-comp-weight').innerText = data.summary.compWeight.toLocaleString();
+    document.getElementById('kpi-sub-weight').innerText = data.summary.subWeight.toLocaleString();
+    document.getElementById('kpi-planned-val').innerText = data.summary.plannedValue.toLocaleString();
+    document.getElementById('kpi-val-per-kg').innerText = data.summary.valPerKg.toLocaleString();
+    
+    document.getElementById('kpi-comp-cost').innerText = data.summary.compCost.toLocaleString();
+    document.getElementById('kpi-sub-cost').innerText = data.summary.subCost.toLocaleString();
+    document.getElementById('kpi-returns').innerText = data.summary.returns.toLocaleString();
+    document.getElementById('kpi-total-cost-ratio').innerText = data.summary.totalCostRatio.toFixed(1);
+
+    // テーブル描画
+    const tbody = document.getElementById('analysis-table-body');
+    tbody.innerHTML = data.daily.map(d => `
+      <tr class="hover:bg-slate-50 transition-colors">
+        <td class="p-3 font-mono">${d.date.substring(8)}日</td>
+        <td class="p-3 text-right">${d.compWeight.toLocaleString()}</td>
+        <td class="p-3 text-right">${d.subWeight.toLocaleString()}</td>
+        <td class="p-3 text-right bg-blue-50/30">${d.whiteWeight.toLocaleString()}</td>
+        <td class="p-3 text-right bg-orange-50/30">${d.colorWeight.toLocaleString()}</td>
+        <td class="p-3 text-right">¥${d.compCost.toLocaleString()}</td>
+        <td class="p-3 text-right">¥${d.subCost.toLocaleString()}</td>
+        <td class="p-3 text-right text-red-500">¥${d.returns.toLocaleString()}</td>
+        <td class="p-3 text-right font-black">¥${d.plannedValue.toLocaleString()}</td>
+        <td class="p-3 text-right font-black ${d.dailyRatio > 40 ? 'text-red-600' : 'text-slate-900'}">${d.dailyRatio.toFixed(1)}%</td>
+        <td class="p-3 text-right accent-orange">${d.cumRatio.toFixed(1)}%</td>
+      </tr>
+    `).join('');
+
+    renderCharts(data);
+  }
+
+  function renderCharts(data) {
+    if (typeof Chart === 'undefined') return;
+
+    const ctxTrend = document.getElementById('chart-main-trend').getContext('2d');
+    const ctxMix = document.getElementById('chart-prod-mix').getContext('2d');
+
+    if(apmCharts.trend) apmCharts.trend.destroy();
+    if(apmCharts.mix) apmCharts.mix.destroy();
+
+    // トレンドグラフ
+    apmCharts.trend = new Chart(ctxTrend, {
+      type: 'line',
+      data: {
+        labels: data.daily.map(d => d.date.substring(8) + "日"),
+        datasets: [
+          { label: '原材料費率(累計) %', data: data.daily.map(d => d.cumRatio), borderColor: '#f97316', backgroundColor: '#f97316', yAxisID: 'y1', tension: 0.1, fill: false },
+          { label: '生産高/kg (¥)', data: data.daily.map(d => d.plannedValue / (d.compWeight + d.subWeight || 1)), borderColor: '#1e293b', backgroundColor: '#1e293b', yAxisID: 'y2', type: 'bar' }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          y1: { type: 'linear', position: 'left', min: 0, max: 100, ticks: { callback: v => v + '%' } },
+          y2: { type: 'linear', position: 'right', grid: { drawOnChartArea: false } }
+        }
+      }
+    });
+
+    // 生産構成パイチャート
+    apmCharts.mix = new Chart(ctxMix, {
+      type: 'pie',
+      data: {
+        labels: ['ホワイト重量', 'カラー重量'],
+        datasets: [{
+          data: [data.summary.whiteWeight, data.summary.colorWeight],
+          backgroundColor: ['#3b82f6', '#f97316'],
+          borderWidth: 0
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    });
+  }
+
+  function generateDummyData(month) {
+    let cumCost = 0;
+    let cumVal = 0;
+    const daily = Array.from({length: 25}, (_, i) => {
+      const cw = 1200 + Math.random() * 500;
+      const sw = 100 + Math.random() * 50;
+      const ww = i % 2 === 0 ? cw * 0.8 : 0;
+      const clw = i % 2 !== 0 ? cw * 0.8 : 0;
+      const cc = cw * 185;
+      const sc = sw * 800;
+      const ret = i === 10 ? 50000 : 0;
+      const val = (ww + clw) * 350;
+      
+      cumCost += (cc + sc + ret);
+      cumVal += val;
+      
+      return {
+        date: `${month}-${String(i+1).padStart(2,'0')}`,
+        compWeight: cw, subWeight: sw, whiteWeight: ww, colorWeight: clw,
+        compCost: cc, subCost: sc, returns: ret, plannedValue: val,
+        dailyRatio: ((cc + sc + ret) / (val || 1)) * 100,
+        cumRatio: (cumCost / (cumVal || 1)) * 100
+      };
+    });
+
+    return {
+      summary: {
+        compWeight: daily.reduce((a,b)=>a+b.compWeight,0),
+        subWeight: daily.reduce((a,b)=>a+b.subWeight,0),
+        plannedValue: cumVal,
+        valPerKg: Math.round(cumVal / daily.reduce((a,b)=>a+b.compWeight+b.subWeight,0)),
+        compCost: daily.reduce((a,b)=>a+b.compCost,0),
+        subCost: daily.reduce((a,b)=>a+b.subCost,0),
+        returns: daily.reduce((a,b)=>a+b.returns,0),
+        totalCostRatio: (cumCost / (cumVal || 1)) * 100,
+        whiteWeight: daily.reduce((a,b)=>a+b.whiteWeight,0),
+        colorWeight: daily.reduce((a,b)=>a+b.colorWeight,0)
+      },
+      daily: daily
+    };
+  }
+</script>

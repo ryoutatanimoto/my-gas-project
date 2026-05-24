@@ -1,0 +1,515 @@
+<!-- LIXIL 栗沢工場 粉砕・ペレタイザー実績分析 コンポーネント (他画面破壊防止・完全防衛カプセル化仕様) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    .lixil-orange { color: #F60; }
+    .bg-lixil-orange { background-color: #F60; }
+    .card { background: white; border-radius: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; color: #1e293b; }
+    .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .page-btn:disabled { background-color: #f1f5f9; color: #cbd5e1; cursor: not-allowed; opacity: 0.5; }
+    .custom-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    
+    /* トグルスイッチ調のカスタムチェックボックス */
+    .filter-checkbox {
+        display: none;
+    }
+    .filter-label {
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 2px solid #e2e8f0;
+        user-select: none;
+        font-size: 11px;
+        padding: 8px 16px;
+        border-radius: 9999px;
+        background: white;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 700;
+    }
+    .filter-label:hover {
+        border-color: #cbd5e1;
+    }
+    
+    /* 各系列の色に応じたアクティブ表示 */
+    #toggle-color-weight:checked + .label-color-weight { background-color: #ffedd5; border-color: #fb923c; color: #ea580c; }
+    #toggle-pellet-weight:checked + .label-pellet-weight { background-color: #f3e8ff; border-color: #a855f7; color: #7e22ce; }
+    #toggle-white-time:checked + .label-white-time { background-color: #f1f5f9; border-color: #64748b; color: #334155; }
+    #toggle-color-time:checked + .label-color-time { background-color: #fef3c7; border-color: #f59e0b; color: #b45309; }
+    #toggle-pellet-time:checked + .label-pellet-time { background-color: #dbeafe; border-color: #3b82f6; color: #1d4ed8; }
+
+    /* 独立したスクラップ分析専用のロード表示 */
+    #scrap-page-loader { transition: all 0.2s; z-index: 3000; }
+</style>
+
+<!-- 簡易同期処理インジケータ (色調画面のローダーと競合しないようユニーク化) -->
+<div id="scrap-page-loader" class="hidden fixed inset-0 bg-slate-900/60 z-[3000] flex flex-col items-center justify-center backdrop-blur-sm p-4 text-white">
+    <div class="spinner-border text-light mb-3" role="status"></div>
+    <div id="scrap-page-loader-text" class="font-bold text-sm">LDPから実績を同期中...</div>
+</div>
+
+<div class="space-y-6 text-slate-800">
+    <!-- フィルタパネル -->
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white p-4 rounded-2xl shadow-sm border text-slate-800">
+        <div class="flex items-center gap-2">
+            <span class="w-2.5 h-5 bg-orange-600 rounded-full"></span>
+            <h3 class="font-bold text-gray-700 text-sm">粉砕・ペレタイザー 期間指定分析</h3>
+        </div>
+        
+        <div class="flex items-center gap-3 bg-gray-50 p-2 rounded-xl border">
+            <div id="rangeSelectorArea" class="flex items-center gap-2">
+                <label class="text-[10px] font-bold text-gray-400">期間指定:</label>
+                <input type="date" id="scrapRangeStart" onchange="loadScrapTab()" class="bg-white border px-2 py-1 text-xs font-bold rounded">
+                <span>~</span>
+                <input type="date" id="scrapRangeEnd" onchange="loadScrapTab()" class="bg-white border px-2 py-1 text-xs font-bold rounded">
+            </div>
+            <button id="btn-scrap-refresh" onclick="loadScrapTab()" class="bg-orange-600 text-white p-2 px-3 rounded-lg hover:bg-orange-700 shadow-md transition-all active:scale-95 flex items-center gap-2" title="最新データを再取得">
+                <i class="fa-solid fa-arrows-rotate"></i>
+                <span class="text-xs font-bold">同期</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- メインKPIサマリー -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        <!-- カラー粉砕重量 -->
+        <div class="card p-4 border-t-4 border-orange-500">
+            <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">カラー粉砕重量</p>
+            <h2 id="kpi-color-weight" class="text-2xl font-bold">--</h2>
+            <span class="text-[10px] text-gray-400 font-bold">kg</span>
+        </div>
+        <!-- ペレット生産量 -->
+        <div class="card p-4 border-t-4 border-purple-600">
+            <p class="text-[10px] text-purple-600 font-bold uppercase tracking-wider">ペレット生産量</p>
+            <h2 id="kpi-pellet-weight" class="text-2xl font-bold">--</h2>
+            <span class="text-[10px] text-gray-400 font-bold">kg</span>
+        </div>
+        <!-- ホワイト粉砕時間 -->
+        <div class="card p-4 border-t-4 border-slate-500">
+            <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">ホワイト粉砕時間</p>
+            <h2 id="kpi-white-time" class="text-2xl font-bold">--</h2>
+            <span class="text-[10px] text-gray-400 font-bold">分</span>
+        </div>
+        <!-- カラー粉砕時間 -->
+        <div class="card p-4 border-t-4 border-amber-500">
+            <p class="text-[10px] text-amber-600 font-bold uppercase tracking-wider">カラー粉砕時間</p>
+            <h2 id="kpi-color-time" class="text-2xl font-bold">--</h2>
+            <span class="text-[10px] text-gray-400 font-bold">分</span>
+        </div>
+        <!-- ペレタイザー時間 -->
+        <div class="card p-4 border-t-4 border-indigo-500">
+            <p class="text-[10px] text-indigo-600 font-bold uppercase tracking-wider">ペレタイザー時間</p>
+            <h2 id="kpi-pellet-time" class="text-2xl font-bold">--</h2>
+            <span class="text-[10px] text-gray-400 font-bold">分</span>
+        </div>
+    </div>
+
+    <!-- グラフコントロール ＆ 遷移グラフ表示エリア -->
+    <div class="card p-6 space-y-4">
+        <!-- 表示項目切替チェックボックスセレクター -->
+        <div class="flex flex-wrap items-center gap-2 pb-2 border-b border-slate-100">
+            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-2"><i class="fa-solid fa-eye me-1"></i> 表示グラフ選択:</span>
+            
+            <label class="inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="toggle-color-weight" checked onchange="loadScrapTabToggleOnly()" class="filter-checkbox">
+                <span class="filter-label label-color-weight">
+                    <i class="fa-solid fa-circle"></i> カラー粉砕量 (kg)
+                </span>
+            </label>
+
+            <label class="inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="toggle-pellet-weight" checked onchange="loadScrapTabToggleOnly()" class="filter-checkbox">
+                <span class="filter-label label-pellet-weight">
+                    <i class="fa-solid fa-circle"></i> ペレット生産量 (kg)
+                </span>
+            </label>
+
+            <label class="inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="toggle-white-time" checked onchange="loadScrapTabToggleOnly()" class="filter-checkbox">
+                <span class="filter-label label-white-time">
+                    <i class="fa-solid fa-clock"></i> ホワイト粉砕時間 (分)
+                </span>
+            </label>
+
+            <label class="inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="toggle-color-time" checked onchange="loadScrapTabToggleOnly()" class="filter-checkbox">
+                <span class="filter-label label-color-time">
+                    <i class="fa-solid fa-clock"></i> カラー粉砕時間 (分)
+                </span>
+            </label>
+
+            <label class="inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="toggle-pellet-time" checked onchange="loadScrapTabToggleOnly()" class="filter-checkbox">
+                <span class="filter-label label-pellet-time">
+                    <i class="fa-solid fa-clock"></i> ペレタイザー時間 (分)
+                </span>
+            </label>
+            
+            <!-- 一括制御用クイックボタン -->
+            <div class="ms-auto flex gap-1.5">
+                <button onclick="loadScrapTabToggleAll(true)" class="text-[10px] font-bold text-slate-500 hover:text-slate-800 bg-slate-100 px-2.5 py-1 rounded-lg transition-colors">すべてON</button>
+                <button onclick="loadScrapTabToggleAll(false)" class="text-[10px] font-bold text-slate-500 hover:text-slate-800 bg-slate-100 px-2.5 py-1 rounded-lg transition-colors">すべてOFF</button>
+            </div>
+        </div>
+
+        <div class="h-96">
+            <canvas id="chart-scrap-trend"></canvas>
+        </div>
+    </div>
+
+    <!-- 実績詳細明細データテーブル -->
+    <div class="card overflow-hidden">
+        <div class="p-4 bg-slate-50 border-b flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="w-1.5 h-4 bg-blue-500 rounded-full"></span>
+                <h4 class="font-bold text-gray-700 text-sm">期間内 実績データ明細一覧</h4>
+            </div>
+            <p class="text-[10px] text-slate-400 font-bold m-0">50件ずつ表示</p>
+        </div>
+        <div class="overflow-x-auto custom-scroll bg-white">
+            <table class="w-full text-left text-xs border-collapse">
+                <thead class="bg-slate-100 text-[10px] uppercase text-slate-500 font-black">
+                    <tr>
+                        <th class="p-3 border-b">作業日</th>
+                        <th class="p-3 border-b text-center">直（シフト）</th>
+                        <th class="p-3 border-b text-right text-orange-600">カラー粉砕 (kg)</th>
+                        <th class="p-3 border-b text-right text-purple-600">ペレット生産 (kg)</th>
+                        <th class="p-3 border-b text-right">ホワイト粉砕 (分)</th>
+                        <th class="p-3 border-b text-right">カラー粉砕 (分)</th>
+                        <th class="p-3 border-b text-right">ペレタイザー (分)</th>
+                        <th class="p-3 border-b">ペレット種類</th>
+                    </tr>
+                </thead>
+                <tbody id="scrap-table-body" class="divide-y divide-slate-100 font-bold text-slate-600">
+                    <!-- JavaScriptで動的生成 -->
+                </tbody>
+            </table>
+        </div>
+        <!-- ページネーション -->
+        <div class="flex items-center justify-between p-3 border-t bg-slate-50">
+            <button id="btn-scrap-prev" onclick="loadScrapTabPrevPage()" class="page-btn px-3 py-1.5 border rounded-lg text-[10px] font-black bg-white hover:bg-slate-50">PREV</button>
+            <div id="scrap-page-indicator" class="px-3 py-1 bg-white border rounded-lg text-[10px] font-black">1 / 1</div>
+            <button id="btn-scrap-next" onclick="loadScrapTabNextPage()" class="page-btn px-3 py-1.5 border rounded-lg text-[10px] font-black bg-white hover:bg-slate-50">NEXT</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 💡 即時実行関数 (IIFE) を用いて、スクラップ分析のすべての変数・内部処理を完全にカプセル化
+    // グローバル空間にはポータルから呼び出される「最小限の仲介用の関数」のみを公開します。
+    (function() {
+        const self = {
+            chart: null,
+            currentPage: 1,
+            pageSize: 50,
+            rawData: [],
+            dayTrendData: [],
+            isInitialized: false,
+
+            fmtNum: function(num) {
+                return (!num || isNaN(num)) ? "0" : Math.round(num).toLocaleString();
+            },
+
+            fmtFloat: function(num) {
+                return (!num || isNaN(num)) ? "0.0" : parseFloat(num).toFixed(1);
+            },
+
+            // 💡 月初〜当日の自動代入を司る安全初期化関数
+            initDates: function() {
+                if (this.isInitialized) return;
+                const now = new Date();
+                const y = now.getFullYear();
+                const m = String(now.getMonth() + 1).padStart(2, '0');
+                const d = String(now.getDate()).padStart(2, '0');
+                
+                const startInput = document.getElementById('scrapRangeStart');
+                const endInput = document.getElementById('scrapRangeEnd');
+
+                if (startInput && !startInput.value) {
+                    startInput.value = `${y}-${m}-01`;
+                }
+                if (endInput && !endInput.value) {
+                    endInput.value = `${y}-${m}-${d}`;
+                }
+                this.isInitialized = true;
+            },
+
+            // データの読み込み
+            loadData: function() {
+                this.initDates(); // ロード時に再度日付が空でないか確認・セット
+                const start = document.getElementById('scrapRangeStart').value;
+                const end = document.getElementById('scrapRangeEnd').value;
+                
+                if (!start || !end) return;
+
+                if (typeof google === 'undefined' || !google.script) {
+                    this.simulateLocalData();
+                    return;
+                }
+
+                this.showLoader(true, "LDPから実績データを取得中...");
+                google.script.run
+                    .withSuccessHandler(data => {
+                        this.showLoader(false);
+                        this.rawData = data || [];
+                        this.currentPage = 1;
+                        this.renderAnalysis();
+                    })
+                    .withFailureHandler(err => {
+                        this.showLoader(false);
+                        console.error("データ取得エラー: ", err);
+                    })
+                    .getScrapAnalysisData(start, end);
+            },
+
+            // ローカルデモ
+            simulateLocalData: function() {
+                this.showLoader(true, "ローカルデモデータを生成中...");
+                setTimeout(() => {
+                    this.showLoader(false);
+                    const mockData = [];
+                    const startStr = document.getElementById('scrapRangeStart').value;
+                    const endStr = document.getElementById('scrapRangeEnd').value;
+                    const startDate = new Date(startStr);
+                    const endDate = new Date(endStr);
+                    
+                    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                        const dateString = d.toISOString().split('T')[0];
+                        const shifts = ["1直", "2直", "3直"];
+                        shifts.forEach(s => {
+                            mockData.push({
+                                work_date: dateString,
+                                shift: s,
+                                white_scrap_weight: 0.0,
+                                white_scrap_time: Math.floor(Math.random() * 200) + 100,
+                                color_scrap_weight: Math.floor(Math.random() * 300) + 50.5,
+                                color_scrap_time: Math.floor(Math.random() * 250) + 120,
+                                pellet_weight: Math.floor(Math.random() * 400) + 100.2,
+                                pellet_time: Math.floor(Math.random() * 300) + 150,
+                                pellet_type: Math.random() > 0.4 ? "カラーペレット" : "ホワイト表層ペレット"
+                            });
+                        });
+                    }
+                    this.rawData = mockData.sort((a,b) => b.work_date.localeCompare(a.work_date));
+                    this.currentPage = 1;
+                    this.renderAnalysis();
+                }, 600);
+            },
+
+            // 解析結果描画
+            renderAnalysis: function() {
+                let totalColorWeight = 0, totalPelletWeight = 0;
+                let totalWhiteTime = 0, totalColorTime = 0, totalPelletTime = 0;
+
+                this.dayTrendData = Array.from({ length: 31 }, () => ({
+                    color_w: 0, pellet_w: 0, white_t: 0, color_t: 0, pellet_t: 0
+                }));
+
+                this.rawData.forEach(r => {
+                    const cw = parseFloat(r.color_scrap_weight) || 0;
+                    const pw = parseFloat(r.pellet_weight) || 0;
+                    const wt = parseInt(r.white_scrap_time) || 0;
+                    const ct = parseInt(r.color_scrap_time) || 0;
+                    const pt = parseInt(r.pellet_time) || 0;
+
+                    totalColorWeight += cw;
+                    totalPelletWeight += pw;
+                    totalWhiteTime += wt;
+                    totalColorTime += ct;
+                    totalPelletTime += pt;
+
+                    const dateParts = r.work_date.split(/[\/\-]/);
+                    if (dateParts.length >= 3) {
+                        const dayIndex = parseInt(dateParts[2], 10) - 1;
+                        if (dayIndex >= 0 && dayIndex < 31) {
+                            this.dayTrendData[dayIndex].color_w += cw;
+                            this.dayTrendData[dayIndex].pellet_w += pw;
+                            this.dayTrendData[dayIndex].white_t += wt;
+                            this.dayTrendData[dayIndex].color_t += ct;
+                            this.dayTrendData[dayIndex].pellet_t += pt;
+                        }
+                    }
+                });
+
+                document.getElementById('kpi-color-weight').innerText = this.fmtFloat(totalColorWeight);
+                document.getElementById('kpi-pellet-weight').innerText = this.fmtFloat(totalPelletWeight);
+                document.getElementById('kpi-white-time').innerText = this.fmtNum(totalWhiteTime);
+                document.getElementById('kpi-color-time').innerText = this.fmtNum(totalColorTime);
+                document.getElementById('kpi-pellet-time').innerText = this.fmtNum(totalPelletTime);
+
+                this.drawTrendChart();
+                this.renderTable();
+            },
+
+            // 複合グラフの描画
+            drawTrendChart: function() {
+                const labels = Array.from({ length: 31 }, (_, i) => (i + 1) + "日");
+                
+                const showColorWeight = document.getElementById('toggle-color-weight').checked;
+                const showPelletWeight = document.getElementById('toggle-pellet-weight').checked;
+                const showWhiteTime = document.getElementById('toggle-white-time').checked;
+                const showColorTime = document.getElementById('toggle-color-time').checked;
+                const showPelletTime = document.getElementById('toggle-pellet-time').checked;
+
+                const colorWeights = this.dayTrendData.map(d => d.color_w === 0 ? null : d.color_w);
+                const pelletWeights = this.dayTrendData.map(d => d.pellet_w === 0 ? null : d.pellet_w);
+                const whiteTimes = this.dayTrendData.map(d => d.white_t === 0 ? null : d.white_t);
+                const colorTimes = this.dayTrendData.map(d => d.color_t === 0 ? null : d.color_t);
+                const pelletTimes = this.dayTrendData.map(d => d.pellet_t === 0 ? null : d.pellet_t);
+
+                const datasets = [];
+
+                if (showColorWeight) {
+                    datasets.push({ label: 'カラー粉砕量 (kg)', data: colorWeights, type: 'bar', backgroundColor: 'rgba(251, 146, 60, 0.85)', yAxisID: 'y-weight', borderRadius: 4 });
+                }
+                if (showPelletWeight) {
+                    datasets.push({ label: 'ペレット生産量 (kg)', data: pelletWeights, type: 'bar', backgroundColor: 'rgba(147, 51, 234, 0.85)', yAxisID: 'y-weight', borderRadius: 4 });
+                }
+                if (showWhiteTime) {
+                    datasets.push({ label: 'ホワイト粉砕時間 (分)', data: whiteTimes, type: 'line', borderColor: '#64748b', borderWidth: 2.5, pointRadius: 3.5, tension: 0.1, yAxisID: 'y-time' });
+                }
+                if (showColorTime) {
+                    datasets.push({ label: 'カラー粉砕時間 (分)', data: colorTimes, type: 'line', borderColor: '#f59e0b', borderWidth: 2.5, pointRadius: 3.5, tension: 0.1, yAxisID: 'y-time' });
+                }
+                if (showPelletTime) {
+                    datasets.push({ label: 'ペレタイザー時間 (分)', data: pelletTimes, type: 'line', borderColor: '#3b82f6', borderWidth: 2.5, pointRadius: 3.5, tension: 0.1, yAxisID: 'y-time' });
+                }
+
+                const ctx = document.getElementById('chart-scrap-trend').getContext('2d');
+                if (this.chart) this.chart.destroy();
+
+                const hasWeightData = showColorWeight || showPelletWeight;
+                const hasTimeData = showWhiteTime || showColorTime || showPelletTime;
+
+                this.chart = new Chart(ctx, {
+                    data: {
+                        labels: labels,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            'y-weight': { 
+                                type: 'linear', 
+                                position: 'left', 
+                                title: { display: hasWeightData, text: '重量基準 (kg)', font: { weight: 'bold' } },
+                                display: hasWeightData,
+                                min: 0 
+                            },
+                            'y-time': { 
+                                type: 'linear', 
+                                position: 'right', 
+                                title: { display: hasTimeData, text: '稼働時間 (分)', font: { weight: 'bold' } }, 
+                                grid: { drawOnChartArea: false }, 
+                                display: hasTimeData,
+                                min: 0 
+                            }
+                        },
+                        plugins: {
+                            tooltip: { mode: 'index', intersect: false }
+                        }
+                    }
+                });
+            },
+
+            // トグルの切替
+            updateDatasetVisibility: function() {
+                if (this.dayTrendData.length > 0) {
+                    this.drawTrendChart();
+                }
+            },
+
+            // 一括切替
+            setAllToggles: function(status) {
+                const toggles = [
+                    'toggle-color-weight',
+                    'toggle-pellet-weight',
+                    'toggle-white-time',
+                    'toggle-color-time',
+                    'toggle-pellet-time'
+                ];
+                toggles.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.checked = status;
+                });
+                this.updateDatasetVisibility();
+            },
+
+            // 明細テーブルのレンダリング
+            renderTable: function() {
+                const tbody = document.getElementById('scrap-table-body');
+                if (!tbody) return;
+                tbody.innerHTML = "";
+
+                const totalPages = Math.max(1, Math.ceil(this.rawData.length / this.pageSize));
+                document.getElementById('scrap-page-indicator').innerText = `${this.currentPage} / ${totalPages}`;
+                document.getElementById('btn-scrap-prev').disabled = (this.currentPage === 1);
+                document.getElementById('btn-scrap-next').disabled = (this.currentPage >= totalPages);
+
+                const startIdx = (this.currentPage - 1) * this.pageSize;
+                const pagedData = this.rawData.slice(startIdx, startIdx + this.pageSize);
+
+                if (pagedData.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-slate-400 font-normal">指定期間内に実績データが見つかりませんでした。</td></tr>`;
+                    return;
+                }
+
+                pagedData.forEach(r => {
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-orange-50/40 transition-colors">
+                            <td class="p-3 border-b font-mono">${r.work_date}</td>
+                            <td class="p-3 border-b text-center"><span class="badge bg-slate-100 text-slate-700 font-bold px-2 py-1 rounded">${r.shift}</span></td>
+                            <td class="p-3 border-b text-right text-orange-600 font-mono">${this.fmtFloat(r.color_scrap_weight)}</td>
+                            <td class="p-3 border-b text-right text-purple-600 font-mono">${this.fmtFloat(r.pellet_weight)}</td>
+                            <td class="p-3 border-b text-right font-mono">${this.fmtNum(r.white_scrap_time)}</td>
+                            <td class="p-3 border-b text-right font-mono">${this.fmtNum(r.color_scrap_time)}</td>
+                            <td class="p-3 border-b text-right font-mono">${this.fmtNum(r.pellet_time)}</td>
+                            <td class="p-3 border-b text-slate-500 font-medium">${r.pellet_type || "-"}</td>
+                        </tr>
+                    `;
+                });
+            },
+
+            changePage: function(offset) {
+                this.currentPage += offset;
+                this.renderTable();
+            },
+
+            showLoader: function(show, text) {
+                const loader = document.getElementById('scrap-page-loader');
+                if (loader) {
+                    document.getElementById('scrap-page-loader-text').innerText = text;
+                    loader.classList.toggle('hidden', !show);
+                }
+            }
+        };
+
+        // 💡 ポータルの「表示切替」や「サイドバー遷移」と安全に同期するため、
+        // 外部に露出するグローバルインターフェースを最小化して登録します。
+        window.loadScrapTab = function() {
+            self.initDates(); // タブを開いた瞬間に、日付が空なら「月初〜本日」を即時にセット
+            self.loadData();
+        };
+        window.loadScrapTabToggleOnly = function() {
+            self.updateDatasetVisibility();
+        };
+        window.loadScrapTabToggleAll = function(status) {
+            self.setAllToggles(status);
+        };
+        window.loadScrapTabNextPage = function() {
+            self.changePage(1);
+        };
+        window.loadScrapTabPrevPage = function() {
+            self.changePage(-1);
+        };
+
+        // 💡 他画面を一切邪魔しない「セーフティ登録」で、ページロード時にもバックグラウンドで日付を安全に初期表示
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() { self.initDates(); });
+        } else {
+            self.initDates();
+        }
+    })();
+</script>

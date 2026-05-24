@@ -1,0 +1,541 @@
+<div class="status-analysis-module animate-fadeIn space-y-6 pb-20 text-slate-800">
+  <!-- 検索フィルタ -->
+  <div class="bg-white p-4 rounded-2xl shadow-sm border-2 border-slate-300 mb-4">
+    <div class="flex items-center gap-3 mb-4">
+      <div class="bg-indigo-900 text-white p-2 rounded-lg shadow-md">
+        <i class="fa-solid fa-industry text-lg text-orange-500"></i>
+      </div>
+      <div>
+        <h2 class="text-xl font-black text-slate-900">設備稼働状況 ガントチャート分析</h2>
+        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Machine Operation Gantt Chart</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+      <div class="md:col-span-4">
+        <label class="block text-xs font-black text-slate-600 mb-1">開始日</label>
+        <input type="date" id="status-start-date" class="w-full border-2 border-slate-300 rounded-xl text-sm font-black p-2 text-slate-900 focus:border-indigo-600 transition shadow-inner">
+      </div>
+      <div class="md:col-span-4">
+        <label class="block text-xs font-black text-slate-600 mb-1">終了日</label>
+        <input type="date" id="status-end-date" class="w-full border-2 border-slate-300 rounded-xl text-sm font-black p-2 text-slate-900 focus:border-indigo-600 transition shadow-inner">
+      </div>
+      <div class="md:col-span-4 flex gap-2">
+        <button onclick="StatusAna.update()" class="flex-1 py-2.5 bg-slate-900 text-white rounded-xl font-black text-sm hover:bg-indigo-900 transition-all shadow-md active:scale-95">
+          <i class="fa-solid fa-magnifying-glass me-1"></i> チャート生成
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ガントチャート本体カード -->
+  <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-300 overflow-hidden mb-6">
+    <div class="bg-slate-100 p-4 border-b-2 border-slate-300 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div class="flex items-center gap-3">
+        <span class="text-sm font-black text-slate-700 uppercase flex items-center gap-1">
+          <i class="fa-solid fa-chart-gantt text-indigo-800"></i> 表示対象日選択:
+        </span>
+        <select id="status-select-date" onchange="StatusAna.renderSelectedDate()" class="border-2 border-slate-300 rounded-lg px-3 py-1 text-xs font-bold outline-none bg-white">
+          <!-- JSで日付一覧を動的生成 -->
+        </select>
+      </div>
+
+      <!-- カラーレジェンド（凡例） -->
+      <div class="flex flex-wrap gap-3 text-[10px] font-black">
+        <div class="flex items-center gap-1"><span class="w-3 h-3 rounded" style="background-color: #10b981;"></span> 押出稼働</div>
+        <div class="flex items-center gap-1"><span class="w-3 h-3 rounded" style="background-color: #f97316;"></span> 金型/色替段取</div>
+        <div class="flex items-center gap-1"><span class="w-3 h-3 rounded" style="background-color: #eab308;"></span> 昇温・温調</div>
+        <div class="flex items-center gap-1"><span class="w-3 h-3 rounded" style="background-color: #ef4444;"></span> 停止作業・トラブル停止</div>
+        <div class="flex items-center gap-1"><span class="w-3 h-3 rounded" style="background-color: #94a3b8;"></span> 生産調整・時間外</div>
+      </div>
+    </div>
+
+    <!-- 24時間目盛りヘッダー -->
+    <div class="overflow-x-auto custom-scroll" id="gantt-scroll-container">
+      <div class="min-w-[960px] p-4 pb-1">
+        <div class="flex items-center border-b border-slate-200 pb-2 mb-2 font-black text-[10px] text-slate-400">
+          <div class="w-24 shrink-0 text-center text-slate-700">号機</div>
+          <!-- 時間軸ヘッダー目盛りエリア -->
+          <div class="flex-1 flex justify-between relative px-2" id="gantt-timeline-header-hours">
+            <div class="w-full h-4"></div>
+          </div>
+        </div>
+
+        <!-- 各号機のタイムライン行コンテナ -->
+        <div id="gantt-rows-container" class="space-y-3 py-2 relative">
+          <div class="text-center py-20 text-slate-400 font-bold italic">
+            対象期間を選択して「チャート生成」ボタンを押してください。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 操業・停止実績サマリー集計テーブル (9列にスリム化した極限ぎゅっと版) -->
+  <div class="bg-white rounded-2xl shadow-sm border-2 border-slate-300 overflow-hidden mb-10 animate-fadeIn">
+    <div class="bg-slate-900 text-white p-4 flex justify-between items-center">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-calculator text-orange-500"></i>
+        <h3 class="text-sm font-black uppercase tracking-wider">号機別 操業・停止実績サマリー集計 (選択期間累計)</h3>
+      </div>
+      <span class="text-[10px] bg-slate-800 text-slate-400 px-3 py-1 rounded font-black uppercase italic" id="status-summary-period-label">期間未設定</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse text-xs table-fixed min-w-[950px]">
+        <thead>
+          <tr class="bg-slate-100 border-b-2 border-slate-300 text-slate-600 font-black text-center">
+            <th class="p-2 w-20">号機</th>
+            <th class="p-2">金型セット<br><span class="text-[9px] text-slate-400 font-normal">回数 / 時間</span></th>
+            <th class="p-2">昇温<br><span class="text-[9px] text-slate-400 font-normal">回数 / 時間</span></th>
+            <th class="p-2">立上作業<br><span class="text-[9px] text-slate-400 font-normal">回数 / 時間</span></th>
+            <th class="p-2">立上サイジング<br><span class="text-[9px] text-slate-400 font-normal">回数 / 時間</span></th>
+            <th class="p-2">色替<br><span class="text-[9px] text-slate-400 font-normal">回数 / 時間</span></th>
+            <th class="p-2">停止・故障<br><span class="text-[9px] text-slate-400 font-normal">回数 / 時間</span></th>
+            <th class="p-2 text-emerald-800 bg-emerald-50/50">押出時間<br><span class="text-[9px] text-emerald-700 font-normal">時間合計</span></th>
+            <th class="p-2 bg-indigo-50 text-indigo-900 w-24">時間稼働率</th>
+          </tr>
+        </thead>
+        <tbody id="status-summary-body" class="font-bold text-slate-700 divide-y divide-slate-200">
+          <tr>
+            <td colspan="9" class="p-10 text-center text-slate-400 font-bold italic">
+              「チャート生成」を実行すると、選択された日程全体の号機別集計結果がここにマウントされます。
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- 詳細ホバーツールチップ -->
+<div id="status-gantt-tooltip" class="hidden absolute bg-slate-900 text-white p-3 rounded-lg text-xs font-bold shadow-xl z-[9999] pointer-events-none max-w-xs border border-slate-700"></div>
+
+<style>
+  .animate-fadeIn { animation: statusFadeIn 0.3s ease-out; }
+  @keyframes statusFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .gantt-bar-segment {
+    height: 32px;
+    transition: all 0.2s;
+    cursor: pointer;
+    position: absolute;
+    top: 0;
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  .gantt-bar-segment:hover {
+    filter: brightness(1.1);
+    transform: scaleY(1.08);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    z-index: 50;
+  }
+  .gantt-row-bg {
+    background-image: linear-gradient(to right, #f1f5f9 1px, transparent 1px);
+    background-size: 4.1666% 100%;
+  }
+</style>
+
+<script>
+  const StatusAna = {
+    fixedMachines: ['1','2','3','4','5','6','7','8A','8B','9','10','11','12'],
+    rawResponseData: [],
+    rawSummaryEvents: [],
+    dateList: [],
+
+    init() {
+      const end = new Date();
+      const start = new Date();
+      start.setDate(start.getDate() - 3);
+      
+      document.getElementById('status-start-date').value = start.toLocaleDateString('sv-SE');
+      document.getElementById('status-end-date').value = end.toLocaleDateString('sv-SE');
+
+      this.renderTimelineHeader();
+    },
+
+    renderTimelineHeader() {
+      const header = document.getElementById('gantt-timeline-header-hours');
+      if (!header) return;
+
+      let html = '';
+      for (let i = 0; i <= 24; i++) {
+        const percent = (i / 24) * 100;
+        html += `
+          <div class="absolute text-center" style="left: ${percent}%; transform: translateX(-50%);">
+            ${String(i).padStart(2, '0')}:00
+          </div>
+        `;
+      }
+      html += `<div class="w-full h-4"></div>`;
+      header.innerHTML = html;
+    },
+
+    update() {
+      const start = document.getElementById('status-start-date').value;
+      const end = document.getElementById('status-end-date').value;
+
+      if (!start || !end) {
+        alert("開始日と終了日を選択してください。");
+        return;
+      }
+
+      this.showLoader('BigQueryから稼働時間データを同期中...');
+
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler(res => {
+            this.hideLoader();
+            this.rawResponseData = res.ganttData;
+            this.rawSummaryEvents = res.summaryEvents;
+            this.buildDateSelector(res.ganttData);
+            this.renderSelectedDate();
+            this.renderSummaryTable(start, end);
+          })
+          .withFailureHandler(err => {
+            this.hideLoader();
+            alert("稼働状況の取得に失敗しました: " + err);
+          })
+          .getOperationStatusData(start, end);
+      } else {
+        this.hideLoader();
+        const mockGantt = this.generateMockData(start, end);
+        this.rawResponseData = mockGantt;
+        this.rawSummaryEvents = this.generateMockSummaryEvents(mockGantt);
+        this.buildDateSelector(mockGantt);
+        this.renderSelectedDate();
+        this.renderSummaryTable(start, end);
+      }
+    },
+
+    buildDateSelector(data) {
+      const dates = [...new Set(data.map(d => d.EXTDate))].sort().reverse();
+      const select = document.getElementById('status-select-date');
+      select.innerHTML = dates.map(d => `<option value="${d}">${d.replace(/-/g, '/')}</option>`).join('');
+      this.dateList = dates;
+    },
+
+    renderSelectedDate() {
+      const select = document.getElementById('status-select-date');
+      const container = document.getElementById('gantt-rows-container');
+      
+      if (!select || !select.value) {
+        container.innerHTML = `<div class="text-center py-20 text-slate-400 font-bold italic">表示対象データが存在しません。</div>`;
+        return;
+      }
+
+      const selectedDate = select.value;
+
+      const jstToday = new Intl.DateTimeFormat('ja-JP', { 
+        timeZone: 'Asia/Tokyo', year: 'numeric', month: '2-digit', day: '2-digit' 
+      }).format(new Date()).replace(/\//g, '-');
+
+      let limitMinutes = 1440;
+      let isTodayLimit = false;
+
+      if (selectedDate === jstToday) {
+        const jstTimeStr = new Intl.DateTimeFormat('ja-JP', { 
+          timeZone: 'Asia/Tokyo', hour: '2-digit', minute: '2-digit', hour12: false 
+        }).format(new Date());
+        const [jstHours, jstMinutes] = jstTimeStr.split(':').map(Number);
+        const currentTotalMinutes = jstHours * 60 + jstMinutes;
+
+        isTodayLimit = true;
+        if (currentTotalMinutes >= 0 && currentTotalMinutes < 510) {
+          limitMinutes = 0;
+        } else if (currentTotalMinutes >= 510 && currentTotalMinutes < 1025) {
+          limitMinutes = 510;
+        } else if (currentTotalMinutes >= 1025 && currentTotalMinutes < 1440) {
+          limitMinutes = 1025;
+        }
+      }
+
+      const dayData = this.rawResponseData.filter(d => {
+        return d.EXTDate === selectedDate && d.StartMinutes < limitMinutes;
+      });
+
+      container.innerHTML = this.fixedMachines.map(m => {
+        const mEvents = dayData.filter(d => d.MachineId === m);
+        const barsHtml = mEvents.map(ev => {
+          const leftPercent = (ev.StartMinutes / 1440) * 100;
+          
+          let duration = ev.DurationMinutes;
+          if (ev.StartMinutes + duration > limitMinutes) {
+            duration = limitMinutes - ev.StartMinutes;
+          }
+          const widthPercent = (duration / 1440) * 100;
+          const color = this.getEventColor(ev.TimeItemName, ev.TimeItemCode);
+          
+          return `
+            <div class="gantt-bar-segment rounded"
+                 style="left: ${leftPercent}%; width: ${widthPercent}%; background-color: ${color};"
+                 onmouseenter="StatusAna.showTooltip(event, ${JSON.stringify(ev).replace(/"/g, '&quot;')})"
+                 onmouseleave="StatusAna.hideTooltip()"
+                 onmousemove="StatusAna.moveTooltip(event)">
+            </div>
+          `;
+        }).join('');
+
+        let coverHtml = "";
+        if (isTodayLimit && limitMinutes < 1440) {
+          const coverLeft = (limitMinutes / 1440) * 100;
+          let shiftLabel = "1直 (稼働中)";
+          if (limitMinutes === 510) shiftLabel = "2直 (稼働中)";
+          if (limitMinutes === 1025) shiftLabel = "3直 (稼働中)";
+
+          coverHtml = `
+            <div class="absolute top-0 bottom-0 bg-slate-300/50 backdrop-blur-[1px] flex items-center justify-center font-black text-[9px] text-slate-500 border-l-2 border-dashed border-slate-400/80"
+                 style="left: ${coverLeft}%; right: 0; z-index: 10; pointer-events: none; letter-spacing: 0.1em;">
+              ${shiftLabel}
+            </div>
+          `;
+        }
+
+        return `
+          <div class="flex items-center h-10 border-b border-slate-100 pb-2">
+            <div class="w-24 shrink-0 text-center font-black text-xs text-slate-700 bg-slate-100 rounded-lg py-2 border shadow-sm">${m}号機</div>
+            <div class="flex-1 h-8 relative mx-2 bg-slate-50 border rounded-md shadow-inner overflow-hidden gantt-row-bg">
+              ${barsHtml || `<div class="absolute inset-0 text-center text-[10px] text-slate-300 font-bold flex items-center justify-center italic">実績時間データなし</div>`}
+              ${coverHtml}
+            </div>
+          </div>
+        `;
+      }).join('');
+    },
+
+    /**
+     * 選択期間全体のサマリー計算
+     */
+    renderSummaryTable(start, end) {
+      const tbody = document.getElementById('status-summary-body');
+      const periodLabel = document.getElementById('status-summary-period-label');
+      
+      if (!tbody) return;
+
+      periodLabel.innerText = `${start.replace(/-/g, '/')} 〜 ${end.replace(/-/g, '/')}`;
+
+      const sourceEvents = this.rawSummaryEvents || [];
+
+      if (sourceEvents.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="p-10 text-center text-slate-400 italic font-bold">集計対象データがありません。</td></tr>`;
+        return;
+      }
+
+      const uniqueDays = [...new Set(this.rawResponseData.map(d => d.EXTDate))].length || 1;
+
+      const summary = {};
+      this.fixedMachines.forEach(m => {
+        summary[m] = {
+          dieSetCount: 0,
+          dieSetMinutes: 0,
+          heatingCount: 0,
+          heatingMinutes: 0,
+          startupCount: 0,
+          startupMinutes: 0,
+          sizingCount: 0,
+          sizingMinutes: 0,
+          colorChangeCount: 0,
+          colorChangeMinutes: 0,
+          stopCount: 0,
+          stopMinutes: 0,
+          moldingMinutes: 0,
+          plannedMinutes: uniqueDays * 1440
+        };
+      });
+
+      sourceEvents.forEach(ev => {
+        const m = ev.MachineId;
+        if (!summary[m]) return;
+
+        const duration = parseInt(ev.DurationMinutes) || 0;
+        const cat = ev.Category;
+
+        if (cat === "PLANNED_STOP") {
+          summary[m].plannedMinutes -= duration;
+        } else if (cat === "MOLDING") {
+          summary[m].moldingMinutes += duration;
+        } else if (cat === "STOP") {
+          summary[m].stopMinutes += duration;
+          summary[m].stopCount++;
+        } else if (cat === "SIZING") {
+          summary[m].sizingMinutes += duration;
+          summary[m].sizingCount++;
+        } else if (cat === "STARTUP") {
+          summary[m].startupMinutes += duration;
+          summary[m].startupCount++;
+        } else if (cat === "COLOR_CHANGE") {
+          summary[m].colorChangeMinutes += duration;
+          summary[m].colorChangeCount++;
+        } else if (cat === "DIE_SET") {
+          summary[m].dieSetMinutes += duration;
+          summary[m].dieSetCount++;
+        } else if (cat === "HEATING") {
+          summary[m].heatingMinutes += duration;
+          summary[m].heatingCount++;
+        }
+      });
+
+      tbody.innerHTML = this.fixedMachines.map(m => {
+        const s = summary[m];
+        const planned = Math.max(0, s.plannedMinutes);
+        const yieldRate = planned > 0 ? (s.moldingMinutes / planned) * 100 : 0;
+
+        const formatCell = (count, minutes) => {
+          if (count === 0 && minutes === 0) {
+            return `<div class="text-slate-300 font-normal">-</div>`;
+          }
+          return `
+            <div class="flex flex-col items-center">
+              <span class="text-slate-800 text-[11px]">${count} <span class="text-[9px] text-slate-400">回</span></span>
+              <span class="text-slate-500 text-[10px] font-normal">${minutes.toLocaleString()} <span class="text-[9px] text-slate-400">分</span></span>
+            </div>
+          `;
+        };
+
+        return `
+          <tr class="hover:bg-slate-50 transition-colors font-bold text-center">
+            <td class="p-1.5"><span class="badge bg-slate-800 text-white font-black text-[10px] px-2 py-0.5 rounded shadow-sm">${m}号機</span></td>
+            <td class="p-1.5 border-l">${formatCell(s.dieSetCount, s.dieSetMinutes)}</td>
+            <td class="p-1.5 border-l">${formatCell(s.heatingCount, s.heatingMinutes)}</td>
+            <td class="p-1.5 border-l">${formatCell(s.startupCount, s.startupMinutes)}</td>
+            <td class="p-1.5 border-l">${formatCell(s.sizingCount, s.sizingMinutes)}</td>
+            <td class="p-1.5 border-l">${formatCell(s.colorChangeCount, s.colorChangeMinutes)}</td>
+            <td class="p-1.5 border-l">${formatCell(s.stopCount, s.stopMinutes)}</td>
+            <td class="p-1.5 border-l bg-emerald-50/10 font-mono text-emerald-600 text-xs">
+              <div class="text-right pr-2 font-black">${s.moldingMinutes.toLocaleString()} <span class="text-[9px] text-slate-400 font-normal">分</span></div>
+            </td>
+            <td class="p-1.5 border-l bg-indigo-50/20 font-mono text-indigo-700 font-black text-xs w-24">
+              ${yieldRate.toFixed(1)} %
+            </td>
+          </tr>
+        `;
+      }).join('');
+    },
+
+    getEventColor(name, code) {
+      const n = String(name || "");
+      const c = String(code || "");
+
+      // 💡 1. 停止作業 (14) を最優先で赤（レッド：#ef4444）にするよう配置
+      if (n.includes("停止作業") || n.includes("トラブル") || n.includes("故障") || n.includes("修理") || n.includes("異常") || ["14", "25"].includes(c)) {
+        return "#ef4444"; 
+      }
+      if (n.includes("生産調整") || n.includes("非稼働") || n.includes("計画停止") || n.includes("休み") || n.includes("時間外") || ["15", "16"].includes(c)) {
+        return "#94a3b8"; 
+      }
+      if (n.includes("押出") || c === "00" || n.includes("生産") || n.includes("量産")) {
+        return "#10b981"; 
+      }
+      if (n.includes("段取") || n.includes("金型") || n.includes("色替") || ["01", "02"].includes(c)) {
+        return "#f97316"; 
+      }
+      if (n.includes("昇温") || n.includes("温調") || n.includes("加熱") || c === "08") {
+        return "#eab308"; 
+      }
+      return "#cbd5e1";
+    },
+
+    showTooltip(e, ev) {
+      const tooltip = document.getElementById('status-gantt-tooltip');
+      if (!tooltip) return;
+
+      tooltip.innerHTML = `
+        <div class="border-b border-slate-700 pb-1.5 mb-1.5 flex justify-between items-center">
+          <span class="bg-indigo-600 px-2 py-0.5 rounded text-[10px] font-black">${ev.MachineId}号機</span>
+          <span class="text-[10px] text-slate-400">${ev.EXTDate}</span>
+        </div>
+        <div class="space-y-1 text-[11px]">
+          <div><span class="text-slate-400">作業名:</span> <span class="text-orange-400 font-extrabold">${ev.TimeItemName || '未定義コード'}</span> (${ev.TimeItemCode})</div>
+          <div><span class="text-slate-400">時間帯:</span> <span class="text-white">${ev.StartTime} 〜 ${ev.EndTime}</span></div>
+          <div><span class="text-slate-400">継続時間:</span> <span class="text-emerald-400 font-extrabold">${ev.DurationMinutes} 分</span></div>
+          <div><span class="text-slate-400">指示No:</span> <span class="text-slate-300 font-mono">${ev.IndicationNo || '-'}</span></div>
+        </div>
+      `;
+      tooltip.classList.remove('hidden');
+    },
+
+    moveTooltip(e) {
+      const tooltip = document.getElementById('status-gantt-tooltip');
+      if (!tooltip) return;
+      
+      const scrollY = window.scrollY || document.documentElement.scrollTop;
+      const scrollX = window.scrollX || document.documentElement.scrollLeft;
+
+      tooltip.style.left = (e.clientX + scrollX + 15)  + 'px';
+      tooltip.style.top = (e.clientY + scrollY + 15) + 'px';
+    },
+
+    hideTooltip() {
+      const tooltip = document.getElementById('status-gantt-tooltip');
+      if (tooltip) tooltip.classList.add('hidden');
+    },
+
+    showLoader(text) {
+      const l = document.getElementById('loader');
+      const t = document.getElementById('loader-text');
+      if (l && t) { t.innerText = text; l.classList.remove('hidden'); }
+    },
+
+    hideLoader() {
+      const l = document.getElementById('loader');
+      if (l) l.classList.add('hidden');
+    },
+
+    generateMockData(start, end) {
+      const data = [];
+      const sDate = new Date(start);
+      const eDate = new Date(end);
+      
+      for (let d = new Date(sDate); d <= eDate; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split('T')[0];
+        this.fixedMachines.forEach(m => {
+          let currentMinutes = 0;
+          while (currentMinutes < 1440) {
+            const duration = Math.min(1440 - currentMinutes, 60 + Math.floor(Math.random() * 240));
+            const startHour = Math.floor(currentMinutes / 60);
+            const startMin = currentMinutes % 60;
+            const endMinutes = currentMinutes + duration;
+            const endHour = Math.floor(endMinutes / 60);
+            const endMin = endMinutes % 60;
+
+            const timeItems = [
+              { code: "00", name: "押出成形稼働" },
+              { code: "01", name: "金型交換段取" },
+              { code: "08", name: "金型昇温待機" },
+              { code: "14", name: "計画生産調整" },
+              { code: "25", name: "材料詰まりトラブル" }
+            ];
+            const item = timeItems[Math.floor(Math.random() * timeItems.length)];
+
+            data.push({
+              EXTDate: dateStr,
+              MachineId: m,
+              StartTime: `${String(startHour).padStart(2,'0')}:${String(startMin).padStart(2,'0')}`,
+              EndTime: `${String(endHour).padStart(2,'0')}:${String(endMin).padStart(2,'0')}`,
+              StartMinutes: currentMinutes,
+              DurationMinutes: duration,
+              TimeItemCode: item.code,
+              TimeItemName: item.name,
+              IndicationNo: "IND-" + Math.floor(100000 + Math.random() * 900000)
+            });
+
+            currentMinutes += duration;
+          }
+        });
+      }
+      return data;
+    },
+
+    generateMockSummaryEvents(mockGantt) {
+      return mockGantt.map(m => ({
+        MachineId: m.MachineId,
+        TimeItemCode: m.TimeItemCode,
+        TimeItemName: m.TimeItemName,
+        DurationMinutes: m.DurationMinutes,
+        IndicationNo: m.IndicationNo
+      }));
+    }
+  };
+
+  document.addEventListener('DOMContentLoaded', () => {
+    StatusAna.init();
+  });
+</script>

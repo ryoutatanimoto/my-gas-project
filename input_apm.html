@@ -1,0 +1,454 @@
+<div class="apm-input-container animate-fadeIn space-y-6 pb-10">
+  <style>
+    /* ポータル全体のbody背景を汚染しないよう、このコンテナ内のみにスタイルを適用 */
+    .apm-input-container {
+      font-family: 'Noto Sans JP', sans-serif;
+      color: #1e293b;
+    }
+    
+    .tank-btn { background: #f8fafc; color: #64748b; border: 2px solid #cbd5e1; border-radius: 6px; font-weight: 900; transition: all 0.2s; }
+    .active-tank { background: #1e293b !important; color: #fff !important; border-color: #1e293b !important; }
+    
+    .level-input { width: 100%; border: 2px solid #e2e8f0; border-radius: 6px; padding: 4px; text-align: center; font-weight: 900; font-size: 14px; background: transparent; color: #1e293b; }
+    .level-input:focus { border-color: #fb923c; outline: none; background: white; }
+
+    .usage-input-field { width: 100%; border: 2px solid #e2e8f0; border-radius: 8px; padding: 6px; text-align: center; font-weight: 900; font-size: 14px; background: #fff; color: #1e293b; }
+    .usage-input-field:focus { border-color: #f97316; outline: none; box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1); }
+
+    .formula-no-select { border: 2px solid #cbd5e1; border-radius: 8px; font-weight: 900; width: 100%; padding: 4px; background: #f1f5f9; text-align: center; color: #1e293b; }
+    .batch-input-field { border: 2px solid #cbd5e1; border-radius: 6px; width: 45px; height: 32px; text-align: center; font-weight: 900; font-size: 13px; color: #1e293b; }
+    
+    .material-select { border: 2px solid #cbd5e1; border-radius: 8px; font-weight: 900; padding: 6px; width: 100%; background: #f8fafc; color: #1e293b; font-size: 12px; }
+
+    .ex-checkbox { width: 18px; height: 18px; accent-color: #ef4444; cursor: pointer; }
+
+    .btn-delete { color: #94a3b8; cursor: pointer; transition: 0.2s; }
+    .btn-delete:hover { color: #ef4444; }
+
+    .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    input[type=number] { -moz-appearance: textfield; }
+
+    /* カードの共通スタイル */
+    .kurisawa-card {
+      background: white;
+      border-radius: 1rem;
+      border: 2px solid #94a3b8;
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+      overflow: hidden;
+    }
+  </style>
+  
+  <!-- ヘッダーエリア -->
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div class="flex items-center gap-3">
+      <div class="bg-slate-900 text-white p-3 rounded-2xl shadow-lg border border-slate-700">
+        <i class="fa-solid fa-gears text-xl text-orange-500"></i>
+      </div>
+      <div>
+        <h1 class="text-xl font-black text-white tracking-tighter">材料投入実績入力</h1>
+        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Formula & Inventory Management</p>
+      </div>
+    </div>
+    <div id="apm-status-badge" class="badge bg-green-900/40 text-green-400 font-bold px-4 py-2 rounded-full border border-green-700 text-xs">
+      <i class="fa-solid fa-check-circle me-1"></i> 同期完了
+    </div>
+  </div>
+
+  <!-- 共通設定エリア (日付) -->
+  <div class="kurisawa-card p-4">
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+      <div class="md:col-span-10">
+        <label class="block text-xs font-black text-slate-700 mb-1 tracking-wider uppercase">投入日付 (1日分一括入力)</label>
+        <input type="date" id="apm-date" class="w-full border-2 border-slate-300 rounded-xl text-sm font-black p-3 text-slate-900 focus:border-orange-500 transition shadow-inner">
+      </div>
+      <div class="md:col-span-2 flex items-end">
+        <button onclick="resetAllTables()" class="w-full py-3 bg-slate-900 text-white rounded-xl font-black text-sm hover:bg-slate-800 shadow-md transition-all active:scale-95">
+          <i class="fa-solid fa-trash-can mr-1"></i> リセット
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 【1】メイン原料セクション -->
+  <section class="space-y-4">
+    <div class="flex items-center gap-2 px-2">
+      <div class="w-2 h-6 bg-orange-600 rounded-full"></div>
+      <h2 class="font-black text-white uppercase tracking-tighter">メイン原料（配合バッチ数）</h2>
+    </div>
+
+    <div class="kurisawa-card">
+      <div class="bg-slate-200 px-4 py-3 border-b-2 border-slate-400 flex justify-between items-center">
+        <span class="text-sm font-black text-slate-900 uppercase">基本配合実績 (1〜10番)</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse table-fixed min-w-[1050px]">
+          <thead class="bg-slate-50">
+            <tr class="border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase">
+              <th class="p-2 w-20 text-center">NO</th>
+              <th class="p-2 w-1/4">配合登録名</th>
+              <th class="p-2 w-20 text-center bg-red-50">系外</th>
+              <th class="p-2 text-center border-l-2 border-slate-200">1直 (Batch)</th>
+              <th class="p-2 text-center border-l border-slate-200">2直 (Batch)</th>
+              <th class="p-2 text-center border-l border-slate-200">3直 (Batch)</th>
+              <th class="p-2 w-24 text-right">合計(kg)</th>
+              <th class="p-2 w-10"></th>
+            </tr>
+          </thead>
+          <tbody id="apm-batch-body" class="divide-y-2 divide-slate-100 bg-white"></tbody>
+        </table>
+      </div>
+      <div class="p-3 bg-slate-50 border-t-2 border-slate-200">
+        <button onclick="addBatchRow()" class="flex items-center gap-2 px-4 py-2 bg-white border-2 border-slate-400 rounded-lg font-black text-xs text-slate-700 hover:bg-slate-100 transition shadow-sm">
+          <i class="fa-solid fa-plus text-orange-600"></i> 配合を追加
+        </button>
+      </div>
+    </div>
+
+    <!-- メイン原料：イレギュラー投入 -->
+    <div class="kurisawa-card">
+      <div class="bg-orange-50 px-4 py-2 border-b-2 border-slate-400 flex justify-between items-center">
+        <span class="text-xs font-black text-orange-800 uppercase tracking-tighter">
+          <i class="fa-solid fa-triangle-exclamation mr-1"></i> メイン原料 調整・イレギュラー投入 (kg)
+        </span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse table-fixed min-w-[950px]">
+          <thead class="bg-slate-50 text-[10px] font-black text-slate-500 uppercase">
+            <tr class="border-b border-slate-200">
+              <th class="p-2 w-64 ps-4">調整した原材料名</th>
+              <th class="p-2 text-center border-l-2 border-blue-100 bg-blue-50/30">1直 (kg)</th>
+              <th class="p-2 text-center border-l border-green-100 bg-green-50/30">2直 (kg)</th>
+              <th class="p-2 text-center border-l border-orange-100 bg-orange-50/30">3直 (kg)</th>
+              <th class="p-2 w-10"></th>
+            </tr>
+          </thead>
+          <tbody id="apm-main-adj-body" class="divide-y divide-slate-100 bg-white"></tbody>
+        </table>
+      </div>
+      <div class="p-3 bg-slate-50 border-t-2 border-slate-200 flex justify-between items-center">
+        <button onclick="addMainAdjRow()" class="flex items-center gap-2 px-4 py-2 bg-white border-2 border-slate-400 rounded-lg font-black text-xs text-slate-700 hover:bg-slate-100 transition shadow-sm">
+          <i class="fa-solid fa-flask-vial text-orange-600"></i> 調整分を追加
+        </button>
+        <button onclick="submitMainData()" id="btn-save-main" class="md:w-80 py-4 bg-orange-600 text-white rounded-2xl font-black shadow-xl hover:bg-orange-700 hover:-translate-y-1 transition-all active:scale-95 flex flex-col items-center">
+          <span class="text-lg leading-none"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>メイン実績保存</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- タンク残量 -->
+    <div class="kurisawa-card">
+      <div class="bg-slate-200 px-4 py-2 border-b-2 border-slate-400 font-black text-sm text-slate-900">直開始時のタンクレベル確認 (%)</div>
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-0">
+        <div class="md:col-span-9 bg-white">
+          <table class="w-full text-left border-collapse table-fixed">
+            <thead class="bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase">
+              <tr>
+                <th class="p-2 ps-4">タンク名 / 容量</th>
+                <th class="p-2 text-center text-blue-700">1直</th>
+                <th class="p-2 text-center text-green-700">2直</th>
+                <th class="p-2 text-center text-orange-700">3直</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 font-black text-xs text-slate-700">
+              <tr><td class="p-2 ps-4 font-black">PVC (30t)</td><td><input type="number" id="l-pvc-1" class="level-input"></td><td><input type="number" id="l-pvc-2" class="level-input"></td><td><input type="number" id="l-pvc-3" class="level-input"></td></tr>
+              <tr><td class="p-2 ps-4 font-black">微粉 (5t)</td><td><input type="number" id="l-bifun-1" class="level-input"></td><td><input type="number" id="l-bifun-2" class="level-input"></td><td><input type="number" id="l-bifun-3" class="level-input"></td></tr>
+              <tr><td class="p-2 ps-4 font-black">貯蔵A (20t)</td><td><input type="number" id="l-ta-1" class="level-input"></td><td><input type="number" id="l-ta-2" class="level-input"></td><td><input type="number" id="l-ta-3" class="level-input"></td></tr>
+              <tr><td class="p-2 ps-4 font-black">貯蔵B (20t)</td><td><input type="number" id="l-tb-1" class="level-input"></td><td><input type="number" id="l-tb-2" class="level-input"></td><td><input type="number" id="l-tb-3" class="level-input"></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="md:col-span-3 p-3 bg-slate-50 border-l-2 border-slate-200">
+          <label class="text-[10px] font-black text-slate-500 block mb-2 uppercase">タンク運用設定</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="setTank('storage','A')" id="btn-s-a" class="tank-btn text-[10px] py-1">貯蔵 A</button>
+            <button onclick="setTank('storage','B')" id="btn-s-b" class="tank-btn text-[10px] py-1 active-tank">貯蔵 B</button>
+            <button onclick="setTank('discharge','A')" id="btn-d-a" class="tank-btn text-[10px] py-1">払出 A</button>
+            <button onclick="setTank('discharge','B')" id="btn-d-b" class="tank-btn text-[10px] py-1 active-tank">払出 B</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 【2】副原料セクション -->
+  <section class="space-y-4">
+    <div class="flex items-center gap-2 px-2">
+      <div class="w-2 h-6 bg-blue-700 rounded-full"></div>
+      <h2 class="font-black text-white uppercase tracking-tighter">副原料 (アクリル・軟質・滑剤)</h2>
+    </div>
+
+    <div class="kurisawa-card">
+      <div class="bg-slate-200 px-4 py-3 border-b-2 border-slate-400">
+        <span class="text-sm font-black text-slate-900 uppercase">副原料 投入・在庫実績</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse table-fixed min-w-[1100px]">
+          <thead class="bg-slate-50 text-[10px] font-black text-slate-500 uppercase tracking-tighter">
+            <tr class="border-b border-slate-200">
+              <th class="p-2 w-56 ps-4">原料名</th>
+              <th class="p-2 w-28 text-center border-l-2 border-slate-200">前日在庫</th>
+              <th class="p-2 text-center border-l-2 border-blue-200 bg-blue-50/50">1直</th>
+              <th class="p-2 text-center border-l border-green-200 bg-green-50/50">2直</th>
+              <th class="p-2 text-center border-l border-orange-200 bg-orange-50/50">3直</th>
+              <th class="p-2 w-28 text-center border-l-2 border-red-200 bg-red-50/50">乾燥機内</th>
+              <th class="p-2 w-28 text-center border-l-2 border-slate-200 bg-slate-100">17:20在庫</th>
+              <th class="p-2 w-10"></th>
+            </tr>
+          </thead>
+          <tbody id="sub-material-body" class="divide-y-2 divide-slate-100 bg-white"></tbody>
+        </table>
+      </div>
+      <div class="p-3 bg-slate-50 border-t-2 border-slate-200 flex justify-between items-center">
+        <button onclick="addSubMaterialRow()" class="flex items-center gap-2 px-4 py-2 bg-white border-2 border-slate-400 rounded-lg font-black text-xs text-slate-700 hover:bg-slate-100 transition shadow-sm">
+          <i class="fa-solid fa-plus text-blue-600"></i> 副原料を追加
+        </button>
+        <button onclick="submitSubData()" id="btn-save-sub" class="md:w-80 py-4 bg-blue-700 text-white rounded-2xl font-black shadow-xl hover:bg-blue-800 hover:-translate-y-1 transition-all active:scale-95 flex flex-col items-center">
+          <span class="text-lg leading-none"><i class="fa-solid fa-cloud-arrow-up mr-2"></i>副原料保存</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    let formulaMaster = []; 
+    let rawMaterialMaster = []; 
+    let subMaterialMaster = []; 
+    
+    let mainBatchRowCount = 0;
+    let mainAdjRowCount = 0;
+    let subRowCount = 0;
+    let selectedTanks = { storage: 'B', discharge: 'B' };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('apm-date').value = new Date().toISOString().split('T')[0];
+      loadAllMasterData();
+    });
+
+    function loadAllMasterData() {
+      const badge = document.getElementById('apm-status-badge');
+      badge.innerHTML = `<i class="fa-solid fa-sync fa-spin me-1"></i> 読込中`;
+      
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run.withSuccessHandler(res => {
+          formulaMaster = res.formulas;
+          rawMaterialMaster = res.materials.filter(m => m.category === 'adj' || m.category === 'main');
+          subMaterialMaster = res.materials.filter(m => m.category === 'sub');
+          resetAllTables();
+          badge.innerHTML = `<i class="fa-solid fa-check-circle me-1"></i> 同期完了`;
+        }).getAllApmMasters();
+      } else {
+        // テスト用ダミーデータ
+        formulaMaster = Array.from({length:10}, (_,i)=>({id:i+1, name:`配合 No.${i+1}`, weight:150}));
+        rawMaterialMaster = [{id:"M1", name:"調整用安定剤"}];
+        subMaterialMaster = [{id:"S1", name:"アクリル(ブラック)", type:"acrylic"}];
+        resetAllTables();
+      }
+    }
+
+    function resetAllTables() {
+      document.getElementById('apm-batch-body').innerHTML = '';
+      document.getElementById('apm-main-adj-body').innerHTML = '';
+      document.getElementById('sub-material-body').innerHTML = '';
+      mainBatchRowCount = 0; mainAdjRowCount = 0; subRowCount = 0;
+      addBatchRow();
+      addMainAdjRow();
+      addSubMaterialRow();
+    }
+
+    function addBatchRow() {
+      mainBatchRowCount++;
+      const tbody = document.getElementById('apm-batch-body');
+      const tr = document.createElement('tr');
+      tr.id = `mb-row-${mainBatchRowCount}`;
+      tr.className = "hover:bg-slate-50 transition-colors apm-main-batch-row";
+      tr.innerHTML = `
+        <td class="p-2 border-r-2 border-slate-100">
+          <select id="f${mainBatchRowCount}-no" onchange="onFormulaChange(${mainBatchRowCount})" class="formula-no-select">
+            <option value="">-</option>${Array.from({length:10},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('')}
+          </select>
+        </td>
+        <td class="p-2"><div id="f${mainBatchRowCount}-name" class="font-black text-slate-700 text-xs truncate">-</div></td>
+        <td class="p-2 text-center bg-red-50/30 border-x border-slate-100">
+          <input type="checkbox" id="f${mainBatchRowCount}-ex" class="ex-checkbox">
+        </td>
+        <td class="p-1 border-l-2 border-slate-100 bg-blue-50/20 text-center"><input type="number" id="f${mainBatchRowCount}-s1-act" class="batch-input-field" oninput="updateBatchTotal(${mainBatchRowCount})"></td>
+        <td class="p-1 border-l border-slate-100 bg-green-50/20 text-center"><input type="number" id="f${mainBatchRowCount}-s2-act" class="batch-input-field" oninput="updateBatchTotal(${mainBatchRowCount})"></td>
+        <td class="p-1 border-l border-slate-100 bg-orange-50/20 text-center"><input type="number" id="f${mainBatchRowCount}-s3-act" class="batch-input-field" oninput="updateBatchTotal(${mainBatchRowCount})"></td>
+        <td class="p-1 text-right border-l-2 border-slate-100 font-black text-slate-800 text-xs"><span id="f${mainBatchRowCount}-kg">0</span>kg</td>
+        <td class="p-1 text-center"><i class="fa-solid fa-trash-can btn-delete" onclick="removeRow('mb-row-${mainBatchRowCount}')"></i></td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    function onFormulaChange(id) {
+      const no = document.getElementById(`f${id}-no`).value;
+      const master = formulaMaster.find(m => m.id == no);
+      document.getElementById(`f${id}-name`).innerText = master ? master.name : "-";
+      updateBatchTotal(id);
+    }
+
+    function updateBatchTotal(id) {
+      const no = document.getElementById(`f${id}-no`).value;
+      const master = formulaMaster.find(m => m.id == no);
+      if(!master) return;
+      const s1 = parseInt(document.getElementById(`f${id}-s1-act`).value || 0);
+      const s2 = parseInt(document.getElementById(`f${id}-s2-act`).value || 0);
+      const s3 = parseInt(document.getElementById(`f${id}-s3-act`).value || 0);
+      document.getElementById(`f${id}-kg`).innerText = ((s1+s2+s3) * master.std_weight).toLocaleString();
+    }
+
+    function addMainAdjRow() {
+      mainAdjRowCount++;
+      const tbody = document.getElementById('apm-main-adj-body');
+      const tr = document.createElement('tr');
+      tr.id = `ma-row-${mainAdjRowCount}`;
+      tr.className = "apm-main-adj-row";
+      tr.innerHTML = `
+        <td class="p-2 ps-4">
+          <select id="ma-mat-${mainAdjRowCount}" class="material-select">
+            <option value="">-- 原料選択 --</option>
+            ${rawMaterialMaster.map(m => `<option value="${m.id}">${m.name}</option>`).join('')}
+          </select>
+        </td>
+        <td class="p-1 border-l-2 border-blue-100 bg-blue-50/20"><input type="number" id="ma-s1-${mainAdjRowCount}" class="usage-input-field"></td>
+        <td class="p-1 border-l border-green-100 bg-green-50/20"><input type="number" id="ma-s2-${mainAdjRowCount}" class="usage-input-field"></td>
+        <td class="p-1 border-l border-orange-100 bg-orange-50/20"><input type="number" id="ma-s3-${mainAdjRowCount}" class="usage-input-field"></td>
+        <td class="p-1 text-center"><i class="fa-solid fa-trash-can btn-delete" onclick="removeRow('ma-row-${mainAdjRowCount}')"></i></td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    function addSubMaterialRow() {
+      subRowCount++;
+      const tbody = document.getElementById('sub-material-body');
+      const tr = document.createElement('tr');
+      tr.id = `s-row-${subRowCount}`;
+      tr.className = "hover:bg-slate-50 transition-colors apm-sub-row";
+      tr.innerHTML = `
+        <td class="p-2 ps-4">
+          <select id="sub${subRowCount}-id" onchange="onSubChange(${subRowCount})" class="material-select">
+            <option value="">-- 原料選択 --</option>
+            ${subMaterialMaster.map(m => `<option value="${m.id}">${m.name}</option>`).join('')}
+          </select>
+        </td>
+        <td class="p-1 border-l-2 border-slate-100"><input type="number" id="sub${subRowCount}-prev" class="usage-input-field"></td>
+        <td class="p-1 border-l-2 border-blue-100 bg-blue-50/30"><input type="number" id="sub${subRowCount}-s1" class="usage-input-field"></td>
+        <td class="p-1 border-l border-green-100 bg-green-50/30"><input type="number" id="sub${subRowCount}-s2" class="usage-input-field"></td>
+        <td class="p-1 border-l border-orange-100 bg-orange-50/30"><input type="number" id="sub${subRowCount}-s3" class="usage-input-field"></td>
+        <td class="p-1 border-l-2 border-red-100 bg-red-50/30"><input type="number" id="sub${subRowCount}-dryer" class="usage-input-field opacity-20" disabled></td>
+        <td class="p-1 border-l-2 border-slate-100 bg-slate-50"><input type="number" id="sub${subRowCount}-current" class="usage-input-field border-slate-300"></td>
+        <td class="p-1 text-center"><i class="fa-solid fa-trash-can btn-delete" onclick="removeRow('s-row-${subRowCount}')"></i></td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    function onSubChange(id) {
+      const val = document.getElementById(`sub${id}-id`).value;
+      const master = subMaterialMaster.find(m => m.id === val);
+      const dryerInp = document.getElementById(`sub${id}-dryer`);
+      if(master && (master.name.includes('アクリル') || master.category === 'acrylic')) {
+        dryerInp.disabled = false;
+        dryerInp.classList.remove('opacity-20');
+        dryerInp.classList.add('border-red-300');
+      } else {
+        dryerInp.disabled = true;
+        dryerInp.classList.add('opacity-20');
+        dryerInp.classList.remove('border-red-300');
+        dryerInp.value = '';
+      }
+    }
+
+    function removeRow(rowId) {
+      const row = document.getElementById(rowId);
+      if(row) row.remove();
+    }
+
+    function setTank(type, val) {
+      selectedTanks[type] = val;
+      const prefix = type === 'storage' ? 's' : 'd';
+      document.getElementById(`btn-${prefix}-a`).classList.toggle('active-tank', val === 'A');
+      document.getElementById(`btn-${prefix}-b`).classList.toggle('active-tank', val === 'B');
+    }
+
+    function submitMainData() {
+      const date = document.getElementById('apm-date').value;
+      if(!date) return alert("日付を入力してください");
+      if(!confirm("メイン原料の実績を保存しますか？")) return;
+
+      const payload = [1,2,3].map(sIdx => {
+        const data = {
+          date, shift: `${sIdx}直`, storage_tank: selectedTanks.storage, discharge_tank: selectedTanks.discharge,
+          levels: {
+            pvc: parseFloat(document.getElementById(`l-pvc-${sIdx}`).value || 0),
+            bifun: parseFloat(document.getElementById(`l-bifun-${sIdx}`).value || 0),
+            tank_a: parseFloat(document.getElementById(`l-ta-${sIdx}`).value || 0),
+            tank_b: parseFloat(document.getElementById(`l-tb-${sIdx}`).value || 0)
+          },
+          batches: {},
+          adjustments: []
+        };
+
+        document.querySelectorAll('.apm-main-batch-row').forEach(row => {
+          const rId = row.id.split('-')[2];
+          const no = document.getElementById(`f${rId}-no`).value;
+          const isEx = document.getElementById(`f${rId}-ex`).checked;
+          if(no) {
+            data.batches[no] = {
+              actual: parseInt(document.getElementById(`f${rId}-s${sIdx}-act`).value || 0),
+              target: 0,
+              is_external: isEx
+            };
+          }
+        });
+
+        document.querySelectorAll('.apm-main-adj-row').forEach(row => {
+          const rId = row.id.split('-')[2];
+          const matId = document.getElementById(`ma-mat-${rId}`).value;
+          const val = parseFloat(document.getElementById(`ma-s${sIdx}-${rId}`).value || 0);
+          if(matId && val !== 0) {
+            const master = rawMaterialMaster.find(m => m.id === matId);
+            data.adjustments.push({ id: matId, name: master.name, weight: val });
+          }
+        });
+        return data;
+      });
+
+      if(typeof google !== 'undefined' && google.script) {
+        google.script.run
+          .withSuccessHandler(() => alert("メイン原料の保存が完了しました。"))
+          .saveApmDailyCombinedToBigQuery(payload);
+      }
+    }
+
+    function submitSubData() {
+      const date = document.getElementById('apm-date').value;
+      if(!date) return alert("日付を入力してください");
+      const items = [];
+      document.querySelectorAll('.apm-sub-row').forEach(row => {
+        const rId = row.id.split('-')[2];
+        const mId = document.getElementById(`sub${rId}-id`).value;
+        if(mId) {
+          const master = subMaterialMaster.find(m => m.id === mId);
+          items.push({
+            id: mId, name: master.name,
+            prev: parseFloat(document.getElementById(`sub${rId}-prev`).value || 0),
+            s1: parseFloat(document.getElementById(`sub${rId}-s1`).value || 0),
+            s2: parseFloat(document.getElementById(`sub${rId}-s2`).value || 0),
+            s3: parseFloat(document.getElementById(`sub${rId}-s3`).value || 0),
+            dryer: parseFloat(document.getElementById(`sub${rId}-dryer`).value || 0),
+            current: parseFloat(document.getElementById(`sub${rId}-current`).value || 0)
+          });
+        }
+      });
+      const payload = { date, items };
+      if(typeof google !== 'undefined' && google.script) {
+        google.script.run
+          .withSuccessHandler(() => alert("副原料の保存が完了しました。"))
+          .saveSubApmDailyToBigQuery(payload);
+      }
+    }
+  </script>
+</div>
