@@ -219,8 +219,8 @@
       <li class="nav-item" onclick="showView('analysis-scrap', this)">
         <a class="nav-link"><i class="fa-solid fa-chart-pie"></i><span>スクラップ分析</span></a>
       </li>
-      <li class="nav-item" onclick="showView('analysis-pellet', this)">
-        <a class="nav-link"><i class="fa-solid fa-vial-circle-check"></i><span>ペレット在庫分析</span></a>
+      <li class="nav-item" onclick="showView('analysis-stock', this)">
+        <a class="nav-link"><i class="fa-solid fa-boxes-stacked"></i><span>形材在庫分析</span></a>
       </li>
       <li class="nav-item" onclick="showView('analysis-status', this)">
         <a class="nav-link"><i class="fa-solid fa-industry"></i><span>設備稼働率</span></a>
@@ -271,7 +271,7 @@
         <div class="app-container"><?!= include('report_mail'); ?></div>
       </section>
 
-      <!-- マスタ関連セクション (ここを追加！) -->
+      <!-- マスタ関連セクション -->
       <section id="view-master_apm" class="view-content">
         <div class="app-container"><?!= include('master_apm'); ?></div>
       </section>
@@ -289,8 +289,8 @@
       <section id="view-analysis-scrap" class="view-content">
         <div class="app-container"><?!= include('analysis_scrap'); ?></div>
       </section>
-      <section id="view-analysis-pellet" class="view-content">
-        <div class="app-container"><?!= include('analysis_pellet'); ?></div>
+      <section id="view-analysis-stock" class="view-content">
+        <div class="app-container"><?!= include('analysis_stock'); ?></div>
       </section>
       <section id="view-analysis-status" class="view-content">
         <div class="app-container"><?!= include('analysis_status'); ?></div>
@@ -332,12 +332,12 @@
         'input-scrap': 'INPUT / 粉砕ペレタイザー実績',
         'input-apm': 'INPUT / 投入原料実績',
         'report-mail': 'REPORT / メール配信',
-        'master_apm': 'MASTER / 配合マスタ', // ここを追加
+        'master_apm': 'MASTER / 配合マスタ',
         'analysis-performance': 'ANALYSIS / 押出実績分析',
         'analysis-quality': 'ANALYSIS / 品質実績分析',
         'analysis-color': 'ANALYSIS / 色調分析',
         'analysis-scrap': 'ANALYSIS / スクラップ分析',
-        'analysis-pellet': 'ANALYSIS / ペレット分析',
+        'analysis-stock': 'ANALYSIS / 形材在庫分析',
         'analysis-status': 'ANALYSIS / 設備稼働率',
         'analysis-apm': 'ANALYSIS / APM分析',
         'analysis-marking': 'ANALYSIS / マーキング本数',
@@ -350,6 +350,9 @@
       }
       if (viewId === 'analysis-performance' && typeof loadCurrentTab === 'function') {
           setTimeout(() => loadCurrentTab(false), 100);
+      }
+      if (viewId === 'analysis-stock' && typeof StockAna !== 'undefined' && typeof StockAna.init === 'function') {
+          setTimeout(() => StockAna.init(), 100);
       }
     }
   </script>

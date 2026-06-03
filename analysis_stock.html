@@ -1,0 +1,284 @@
+<div class="container-fluid p-0 stock-analysis-module animate-fade-in text-slate-800">
+  
+  <!-- ヘッダー兼コントロールパネル -->
+  <div class="bg-white p-4 rounded-3 shadow-sm mb-4 border border-light">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+      <div class="d-flex align-items-center gap-2">
+        <div class="bg-slate-900 text-white p-2.5 rounded shadow-md">
+          <i class="fa-solid fa-boxes-stacked text-lg text-orange-500"></i>
+        </div>
+        <div>
+          <h3 class="fs-5 fw-bold mb-0 text-dark">形材在庫分析 (栗沢在庫のみのため、参考程度にとどめてください)</h3>
+          <p class="text-[10px] text-secondary fw-bold mb-0 uppercase tracking-wider">Profile Extrusion Stock & PPC Scheduler</p>
+        </div>
+      </div>
+      <div id="stock-status-badge" class="badge bg-light text-secondary fw-normal px-3 py-2 rounded-pill border">
+        <i class="fa-solid fa-circle-notch fa-spin me-1"></i> 未同期
+      </div>
+    </div>
+    
+    <div class="row g-3 align-items-end">
+      <!-- 型番指定プルダウン -->
+      <div class="col-md-4">
+        <label class="form-label small fw-bold text-secondary">型番フィルター (Kataban Filter)</label>
+        <select id="stock-model-filter" onchange="StockAna.applyFilter()" class="form-select form-select-lg shadow-sm fs-6">
+          <option value="">全ての型番を表示</option>
+        </select>
+      </div>
+      <!-- 在庫状況ショートカット -->
+      <div class="col-md-3">
+        <label class="form-label small fw-bold text-secondary">在庫指数アラート</label>
+        <div class="d-flex gap-2">
+          <button onclick="StockAna.filterAlert('danger')" class="btn btn-outline-danger btn-sm w-100 fw-bold shadow-sm">
+            危険 (<5日)
+          </button>
+          <button onclick="StockAna.filterAlert('warning')" class="btn btn-outline-warning btn-sm w-100 fw-bold shadow-sm text-dark">
+            警戒 (<10日)
+          </button>
+        </div>
+      </div>
+      <!-- 直近1ヶ月以内の生産フィルター用トグルスイッチ -->
+      <div class="col-md-3 py-2">
+        <div class="form-check form-switch form-switch-md">
+          <input class="form-check-input shadow-sm" type="checkbox" id="stock-active-toggle" onchange="StockAna.applyFilter()" checked>
+          <label class="form-check-input-label small fw-bold text-slate-700 ms-1" for="stock-active-toggle">
+            ✨ 直近1ヶ月以内に生産ありのみ表示
+          </label>
+        </div>
+      </div>
+      <div class="col-md-2">
+        <button onclick="StockAna.load()" id="stock-load-btn" class="btn btn-lg px-3 shadow-sm w-100 fw-bold text-white transition-all bg-slate-900 border-slate-900 hover:bg-slate-800">
+          <i class="fa-solid fa-sync me-1"></i>同期
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 在庫一覧テーブルエリア -->
+  <div class="bg-white rounded-3 shadow-sm overflow-hidden border border-light">
+    <div class="p-3 bg-slate-50 border-bottom d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div class="d-flex align-items-center gap-2">
+        <span class="text-sm fw-bold text-secondary">
+          <i class="fa-solid fa-list-check me-2"></i>形材 在庫状況一覧
+        </span>
+      </div>
+      <div class="d-flex align-items-center gap-3">
+        <button onclick="StockAna.downloadCSV()" id="stock-csv-btn" class="btn btn-outline-success btn-sm fw-bold shadow-sm" disabled>
+          <i class="fa-solid fa-file-csv me-1"></i>CSV出力 (比較用)
+        </button>
+      </div>
+    </div>
+    
+    <div class="table-responsive">
+      <table class="table align-middle text-center mb-0 small">
+        <thead class="table-light">
+          <tr class="fw-bold text-secondary" style="font-size: 10px;">
+            <th class="ps-3 text-start">副資材コード</th>
+            <th>型番</th>
+            <th>枝番</th>
+            <th>色</th>
+            <th>定尺 (mm)</th>
+            <th class="text-end">現在庫数</th>
+            <th class="text-end">日平均出庫</th>
+            <th>在庫指数 (日)</th>
+            <th>詳細</th>
+          </tr>
+        </thead>
+        <tbody id="stock-list-body" class="fw-bold">
+          <tr>
+            <td colspan="9" class="text-center py-5 text-secondary">
+              <i class="fa-solid fa-boxes-stacked me-1"></i> 「同期」ボタンをクリックしてください
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<style>
+  .stock-analysis-module { font-family: 'Noto Sans JP', sans-serif; }
+  .animate-fade-in { animation: stockFadeIn 0.25s ease-out forwards; }
+  @keyframes stockFadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+  .bg-warning-subtle { background-color: #fffbeb !important; }
+  .text-warning-emphasis { color: #b45309 !important; }
+  .clickable-row { cursor: pointer; transition: background-color 0.15s ease; }
+  .clickable-row:hover { background-color: #f1f5f9 !important; }
+  .detail-card { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; animation: slideDown 0.2s ease-out forwards; }
+  .table-danger-light { background-color: #fff5f5 !important; }
+  .form-switch-md .form-check-input { width: 2.5em; height: 1.25em; cursor: pointer; }
+  @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+
+<script>
+  const StockAna = {
+    allData: [],
+    filterState: { model: "", alertType: "", activeOnly: true },
+
+    init() { this.load(); },
+    load() {
+      const badge = document.getElementById('stock-status-badge');
+      const loadBtn = document.getElementById('stock-load-btn');
+      const csvBtn = document.getElementById('stock-csv-btn');
+      const tbody = document.getElementById('stock-list-body');
+      if (loadBtn) loadBtn.disabled = true;
+      if (csvBtn) csvBtn.disabled = true; 
+      if (badge) {
+        badge.className = "badge bg-warning-subtle text-warning fw-normal px-3 py-2 rounded-pill border border-warning-subtle";
+        badge.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> LDPより現在庫を同期中...';
+      }
+      tbody.innerHTML = `<tr><td colspan="9" class="text-center py-5 text-secondary">マージ中...</td></tr>`;
+
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler(res => {
+            if (loadBtn) loadBtn.disabled = false;
+            if (!res.success) {
+              if (badge) badge.className = "badge bg-danger-subtle text-danger fw-normal px-3 py-2 rounded-pill border border-danger-subtle";
+              alert("在庫データの集計に失敗しました: " + res.message);
+              return;
+            }
+            this.allData = res.data;
+            this.buildModelSelector(res.models);
+            this.render();
+            if (badge) {
+              badge.className = "badge bg-success-subtle text-success fw-normal px-3 py-2 rounded-pill border border-success-subtle";
+              badge.innerHTML = '<i class="fa-solid fa-circle-check me-1"></i> 同期完了';
+            }
+            if (csvBtn) csvBtn.disabled = false; 
+          })
+          .withFailureHandler(err => {
+            if (loadBtn) loadBtn.disabled = false;
+            alert("GAS APIエラー: " + err);
+          })
+          .getStockAnalysisData();
+      }
+    },
+
+    buildModelSelector(models) {
+      const select = document.getElementById('stock-model-filter');
+      if (!select) return;
+      select.innerHTML = '<option value="">全ての型番を表示</option>';
+      models.forEach(m => { select.innerHTML += `<option value="${m}">${m}</option>`; });
+    },
+
+    applyFilter() {
+      const select = document.getElementById('stock-model-filter');
+      const toggle = document.getElementById('stock-active-toggle');
+      this.filterState.model = select ? select.value : "";
+      this.filterState.activeOnly = toggle ? toggle.checked : false;
+      this.render();
+    },
+
+    filterAlert(type) {
+      this.filterState.alertType = this.filterState.alertType === type ? "" : type;
+      this.render();
+    },
+
+    getFilteredData() {
+      let filtered = [...this.allData];
+      if (this.filterState.model) filtered = filtered.filter(item => item.model === this.filterState.model);
+      if (this.filterState.activeOnly) filtered = filtered.filter(item => item.producedIn1M === true);
+      
+      if (this.filterState.alertType === 'danger') {
+        filtered = filtered.filter(item => item.stockIndexDays !== '―' && item.stockIndexDays < 5);
+      } else if (this.filterState.alertType === 'warning') {
+        filtered = filtered.filter(item => item.stockIndexDays !== '―' && item.stockIndexDays < 10);
+      }
+
+      filtered.sort((a, b) => {
+        const valA = a.stockIndexDays === '―' ? 9999 : parseFloat(a.stockIndexDays);
+        const valB = b.stockIndexDays === '―' ? 9999 : parseFloat(b.stockIndexDays);
+        return valA - valB;
+      });
+      return filtered;
+    },
+
+    /**
+     * アコーディオン表示の切替処理
+     */
+    toggleDetail(targetId, rowElement) {
+      const detailRow = document.getElementById(targetId);
+      const icon = rowElement.querySelector('.expand-icon');
+      if (!detailRow) return;
+      const isHidden = detailRow.classList.contains('d-none');
+      document.querySelectorAll('.detail-row').forEach(row => row.classList.add('d-none'));
+      document.querySelectorAll('.expand-icon').forEach(i => i.classList.replace('fa-chevron-up', 'fa-chevron-down'));
+      if (isHidden) {
+        detailRow.classList.remove('d-none');
+        if (icon) icon.classList.replace('fa-chevron-down', 'fa-chevron-up');
+      }
+    },
+
+    render() {
+      const tbody = document.getElementById('stock-list-body');
+      if (!tbody) return;
+      const filtered = this.getFilteredData();
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center py-5 text-secondary">条件に該当する在庫レコードが見つかりません。</td></tr>`;
+        return;
+      }
+
+      let htmlBuffer = "";
+      filtered.forEach((item, index) => {
+        const idx = item.stockIndexDays;
+        let idxClass = "text-dark"; let rowClass = "";
+        if (idx !== '―') {
+          const val = parseFloat(idx);
+          if (val < 5) { idxClass = "text-danger fw-black"; rowClass = "table-danger-light"; }
+          else if (val < 10) { idxClass = "text-warning-emphasis fw-bold"; }
+          else { idxClass = "text-success"; }
+        }
+
+        const isProdRequired = item.needProdQty > 0;
+        const rowId = `row-stock-${index}`; const detailId = `detail-stock-${index}`;
+        const activeBadge = item.producedIn1M ? '<span class="badge bg-success text-white ms-1 text-[9px] px-1.5 py-0.5">✨現役</span>' : '';
+
+        htmlBuffer += `
+          <tr id="${rowId}" onclick="StockAna.toggleDetail('${detailId}', this)" class="clickable-row ${rowClass}">
+            <td class="ps-3 text-start"><span class="badge bg-light text-slate-700 border font-mono">${item.subMaterialCode}</span></td>
+            <td>${item.model}${activeBadge}</td>
+            <td><span class="text-slate-500">${item.edaban || '―'}</span></td>
+            <td><span class="badge bg-slate-100 text-slate-800 border">${item.color}</span></td>
+            <td>${item.length}</td>
+            <td class="text-end font-mono">${item.currentQty.toLocaleString()} <span class="text-muted" style="font-size:10px;">(${item.currentPalettes.toFixed(1)}P)</span></td>
+            <td class="text-end font-mono text-secondary">${item.avgOutQtyPerDay.toFixed(1)}</td>
+            <td class="${idxClass} font-mono fs-6">${idx}</td>
+            <td class="text-primary text-center"><i class="expand-icon fa-solid fa-chevron-down"></i></td>
+          </tr>
+          <tr id="${detailId}" class="detail-row d-none">
+            <td colspan="9" class="p-3 bg-slate-50 border-top-0 border-bottom">
+              <div class="detail-card p-3 shadow-sm">
+                <div class="row text-center g-3">
+                  <div class="col-md-3 border-end"><span class="text-[10px] text-secondary fw-bold d-block mb-1 uppercase">推奨生産号機</span><span class="fs-6 fw-bold text-primary">${item.machine}</span></div>
+                  <div class="col-md-3 border-end"><span class="text-[10px] text-secondary fw-bold d-block mb-1 uppercase">標準吐出量</span><span class="fs-6 fw-bold text-dark font-mono">${item.dischargeRate > 0 ? item.dischargeRate.toFixed(1) + ' kg/h' : '―'}</span></div>
+                  <div class="col-md-3 border-end"><span class="text-[10px] text-secondary fw-bold d-block mb-1 uppercase">復旧必要生産量</span><span class="fs-6 fw-bold text-danger font-mono">${isProdRequired ? item.needProdQty.toLocaleString() + ' 本' : '充足'}</span></div>
+                  <div class="col-md-3"><span class="text-[10px] text-secondary fw-bold d-block mb-1 uppercase">予測生産必要時間</span><span class="fs-6 fw-bold text-warning-emphasis font-mono">${isProdRequired ? item.needProdHours.toFixed(1) + ' h' : '―'}</span></div>
+                </div>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+      tbody.innerHTML = htmlBuffer;
+    },
+
+    downloadCSV() {
+      if (!this.allData || this.allData.length === 0) return;
+      const filtered = this.getFilteredData();
+      const headers = ["副資材コード","型番","枝番","色","定尺(mm)","現在庫(本)","1日平均出庫数","在庫指数(日分)","推奨生産号機","標準吐出量","復旧必要生産量","予測生産時間","直近1ヶ月生産フラグ"];
+      let csvContent = headers.map(h => `"${h}"`).join(",") + "\r\n";
+      filtered.forEach(item => {
+        const row = [item.subMaterialCode, item.model, item.edaban, item.color, item.length, item.currentQty, item.avgOutQtyPerDay, item.stockIndexDays, item.machine, item.dischargeRate, item.needProdQty, item.needProdHours, item.producedIn1M ? "現役" : "非稼働"];
+        csvContent += row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",") + "\r\n";
+      });
+      const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+      const blob = new Blob([bom, csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a"); link.href = URL.createObjectURL(blob);
+      link.download = `形材在庫分析現役選別_${new Date().getTime()}.csv`;
+      link.click();
+    }
+  };
+</script>

@@ -29,7 +29,7 @@ function doGet(e) {
 }
 
 /**
- * 読み込みエラーを防ぐための安全な include 関数（Api_common.gsにあるものと同等）
+ * 読み込みエラーを防ぐための安全な include 関数
  */
 function include(filename) {
   try {
