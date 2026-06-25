@@ -125,7 +125,7 @@
             </div>
         </div>
 
-        <!-- 型番別 直行率パフォーマンス (Worst 7) - 不良・ロス率追加、ソート機能の全自動搭載 -->
+        <!-- 型番別 直行率パフォーマンス - 判定区分(バージン/リサイクル/低線)、投入量列追加 -->
         <div id="worst-models-container" class="hidden card p-6 border-2 border-slate-100 shadow-md space-y-4 text-slate-800">
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div class="flex items-center gap-2">
@@ -136,7 +136,22 @@
                         <i class="fa-solid fa-filter-circle-xmark mr-1"></i>クリア
                     </button>
                 </div>
-                <select id="worst-model-filter" onchange="onWorstModelFilterChange(this.value)" class="border-2 border-slate-100 rounded-lg px-3 py-1 text-xs font-bold outline-none"></select>
+                <!-- フィルタ並列配置 -->
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="flex flex-col">
+                        <span class="text-[9px] font-black text-slate-400 mb-0.5">型番指定:</span>
+                        <select id="worst-model-filter" onchange="onWorstModelFilterChange(this.value)" class="border-2 border-slate-100 rounded-lg px-2.5 py-1 text-xs font-bold outline-none bg-white"></select>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-[9px] font-black text-slate-400 mb-0.5">型番タイプ:</span>
+                        <select id="worst-model-type-filter" onchange="worstCurrentPage = 1; render(false);" class="border-2 border-slate-100 rounded-lg px-2.5 py-1 text-xs font-bold outline-none bg-white">
+                            <option value="ALL">すべて表示</option>
+                            <option value="バージン型">バージン型</option>
+                            <option value="リサイクル型">リサイクル型</option>
+                            <option value="低線型">低線型</option>
+                        </select>
+                    </div>
+                </div>
             </div>
             <div class="overflow-x-auto custom-scroll border rounded-xl">
                 <table class="w-full text-left text-xs border-collapse">
@@ -153,6 +168,10 @@
                             </th>
                             <th class="p-3 border-b">号機</th>
                             <th class="p-3 border-b">型番</th>
+                            <th class="p-3 border-b text-center">型番タイプ</th>
+                            <th class="p-3 border-b text-right cursor-pointer select-none hover:bg-slate-100" onclick="setWorstSort('totalInput')">
+                                投入量 (kg) <i id="sort-icon-totalInput" class="fa-solid fa-sort ms-1"></i>
+                            </th>
                             <th class="p-3 border-b text-right cursor-pointer select-none hover:bg-slate-100" onclick="setWorstSort('g')">
                                 生産(kg) <i id="sort-icon-g" class="fa-solid fa-sort ms-1"></i>
                             </th>
@@ -176,7 +195,7 @@
             </div>
         </div>
 
-        <!-- 不良項目 詳細分析：多角的インタラクティブ分析エンジン -->
+        <!-- 不良項目 詳細分析：多軸インタラクティブピボット分析エンジン -->
         <div id="ranking-title" class="card p-6 space-y-6 text-slate-800">
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
                 <div class="flex flex-wrap items-center gap-3">
@@ -195,11 +214,11 @@
                 </div>
             </div>
 
-            <!-- ピボット軸・分類選択・比率分母設定ダッシュボード -->
+            <!-- ピボット軸・分類選択・比率分母設定ダッシュボード (3つの掛け合わせに拡張) -->
             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <div class="row g-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
                     <!-- A. 集計ピボット軸の掛け合わせ -->
-                    <div class="col-md-3">
+                    <div>
                         <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">① 集計主軸 (行グループ)</label>
                         <select id="pivot-primary-axis" onchange="currentPage = 1; render(false);" class="form-select form-select-sm fw-bold border-2 text-xs outline-none">
                             <option value="defect_name" selected>不良・ロス名称 (デフォルト)</option>
@@ -208,19 +227,29 @@
                             <option value="color">色</option>
                         </select>
                     </div>
-                    <div class="col-md-3">
-                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">② 内訳軸 (サブグループ)</label>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">② 内訳軸1 (サブ1)</label>
                         <select id="pivot-secondary-axis" onchange="currentPage = 1; render(false);" class="form-select form-select-sm fw-bold border-2 text-xs outline-none">
                             <option value="machine_id" selected>号機</option>
-                            <option value="none">なし (シンプル集計)</option>
+                            <option value="none">なし</option>
+                            <option value="defect_name">不良・ロス名称</option>
+                            <option value="model">生産型番</option>
+                            <option value="color">色</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">③ 内訳軸2 (サブ2)</label>
+                        <select id="pivot-tertiary-axis" onchange="currentPage = 1; render(false);" class="form-select form-select-sm fw-bold border-2 text-xs outline-none">
+                            <option value="none" selected>なし</option>
+                            <option value="machine_id">号機</option>
                             <option value="defect_name">不良・ロス名称</option>
                             <option value="model">生産型番</option>
                             <option value="color">色</option>
                         </select>
                     </div>
                     <!-- B. 不良・ロスの出し分けスイッチ -->
-                    <div class="col-md-3">
-                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">③ 表示対象セグメント</label>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">④ 表示対象セグメント</label>
                         <select id="pivot-anomaly-type" onchange="currentPage = 1; render(false);" class="form-select form-select-sm fw-bold border-2 text-xs outline-none" style="border-color: #fb923c;">
                             <option value="ALL" selected>すべての異常 (不良 ＋ ロス)</option>
                             <option value="DEFECT">不良のみ表示</option>
@@ -228,12 +257,13 @@
                         </select>
                     </div>
                     <!-- C. 比率の切り替え機能 -->
-                    <div class="col-md-3">
-                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">④ 比率(分母)の算出基準</label>
+                    <div>
+                        <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">⑤ 比率(分母)の算出基準</label>
                         <select id="pivot-ratio-base" onchange="render(false);" class="form-select form-select-sm fw-bold border-2 text-xs outline-none">
                             <option value="DISPLAY" selected>表示データ内比 (現在の合計=100%)</option>
                             <option value="TOTAL">全異常比 (期間内の総重量=100%)</option>
-                            <option value="PRODUCTION">生産比 (型番/全体の生産量基準)</option>
+                            <option value="PRODUCTION">生産比 (全体の良品量基準)</option>
+                            <option value="INPUT">投入比 (全体の総投入量基準)</option>
                         </select>
                     </div>
                 </div>
@@ -252,7 +282,8 @@
                     <thead class="bg-slate-50 text-[10px] uppercase font-black">
                         <tr>
                             <th class="p-4 border-b" id="th-pivot-primary">主集計グループ</th>
-                            <th class="p-4 border-b" id="th-pivot-secondary">内訳</th>
+                            <th class="p-4 border-b" id="th-pivot-secondary">内訳1</th>
+                            <th class="p-4 border-b" id="th-pivot-tertiary">内訳2</th>
                             <th class="p-4 border-b text-center" style="width: 100px;">区分</th>
                             <th class="p-4 border-b text-right" style="width: 150px;">発生重量 (kg)</th>
                             <th class="p-4 border-b text-center" style="width: 280px;">相対グラフ / 比率</th>
@@ -273,7 +304,7 @@
         </div>
     </div>
 
-    <!-- Trend Analysis Area (推移・多角的分析の最強拡張) -->
+    <!-- Trend Analysis Area -->
     <div id="trend-analysis-area" class="hidden space-y-6 text-slate-800">
         <!-- 複合検索・フィルタエリア -->
         <div class="bg-white p-5 rounded-2xl border shadow-sm space-y-4">
@@ -308,7 +339,7 @@
                 </div>
             </div>
 
-            <!-- 表示系列チェックボックス（ユーザーがグラフ系列を自由に切り替え） -->
+            <!-- 表示系列チェックボックス -->
             <div class="border-t pt-3 flex flex-wrap gap-4 items-center">
                 <span class="text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1"><i class="fa-solid fa-eye"></i> 表示系列選択:</span>
                 
@@ -396,6 +427,23 @@
         const p = dStr.split(/[\/\-]/); 
         if (p.length < 3) return "";
         return `${p[0]}-${p[1].padStart(2,'0')}-${p[2].padStart(2,'0')}`; 
+    };
+
+    /**
+     * バージン型、リサイクル型、低線型の自動判別ロジック
+     * - リサイクル型: 色コード末尾が「S」
+     * - 低線型: 2桁で末尾が「T」（色コードのブラックを示す「T」1桁と混同しないよう配慮）
+     * - バージン型: それ以外
+     */
+    const getModelType = (color) => {
+        const c = String(color || "").trim().toUpperCase();
+        if (c.endsWith('S')) {
+            return "リサイクル型";
+        }
+        if (c.length === 2 && c.endsWith('T')) {
+            return "低線型";
+        }
+        return "バージン型";
     };
 
     // ------------------------------------------------------------
@@ -499,7 +547,7 @@
         }
         render(true);
         if (currentTab === 'trend') {
-            updateTrendFilters(); // 連動フィルターの構築
+            updateTrendFilters(); 
             renderTrend();
         }
     }
@@ -516,7 +564,7 @@
             showLoader(false);
             render(true);
             if (currentTab === 'trend') {
-                updateTrendFilters(); // 連動フィルターの再構築
+                updateTrendFilters(); 
                 renderTrend();
             }
         }, 500);
@@ -546,7 +594,7 @@
                         "定尺": 4.0,
                         "単重": 1.2,
                         "積載本数": 120,
-                        "色": "WS",
+                        "色": mac === '1' ? 'A S' : mac === '2' ? 'B T' : 'WS',
                         "副資材コード": modelCode
                     });
 
@@ -573,19 +621,6 @@
                             "型番": modelCode,
                             "不良名称": "立上ﾛｽ",
                             "不良コード": "00" 
-                        });
-                    }
-
-                    // その他の不良
-                    if (day % 5 === 0) {
-                        furyouji.push({
-                            "号機": mac,
-                            "押出日付": dateStr,
-                            "再生重量": 18.0,
-                            "廃棄重量": 3.0,
-                            "型番": 'D101A',
-                            "不良名称": "波打不良",
-                            "不良コード": "46" 
                         });
                     }
 
@@ -644,9 +679,6 @@
         });
     }
 
-    // ------------------------------------------------------------
-    // ⚙️ 段階連動型 検索フィルタ同期エンジン (号機指定 ➜ 型番 ➜ 不良)
-    // ------------------------------------------------------------
     function updateTrendFilters() {
         const mc = document.getElementById('trend-machine-select').value;
         const req = getRequiredMonths();
@@ -658,7 +690,6 @@
             const d = dataCache[mStr];
             if (!d) return;
             
-            // 型番の抽出
             d.oshiji.forEach(r => {
                 const machine = normalizeMachine(r["号機"]);
                 if (mc === 'ALL' || machine === mc) {
@@ -666,7 +697,6 @@
                 }
             });
             
-            // 不良・ロス項目の抽出
             d.furyouji.forEach(r => {
                 const machine = normalizeMachine(r["号機"]);
                 if (mc === 'ALL' || machine === mc) {
@@ -677,7 +707,6 @@
             });
         });
         
-        // 型番セレクトボックスの更新
         const modelSelect = document.getElementById('trend-model-select');
         const prevModelVal = modelSelect ? modelSelect.value : "ALL";
         if (modelSelect) {
@@ -695,7 +724,6 @@
             }
         }
         
-        // 不良・ロス項目セレクトボックスの更新 (「全て」「不良全て」「ロス全て」を追加)
         const defectSelect = document.getElementById('trend-defect-select');
         const prevDefectVal = defectSelect ? defectSelect.value : "ALL";
         if (defectSelect) {
@@ -826,15 +854,17 @@
             // 型番別の高度パフォーマンス表の描画
             renderWorstModelTable(modelPerformanceData, cTargets);
             
-            // ピボット（主軸・内訳）動的クロス集計エンジン
+            // ピボット（主軸・内訳1・内訳2）動的クロス集計エンジン
             const primaryAxis = document.getElementById('pivot-primary-axis').value;
             const secondaryAxis = document.getElementById('pivot-secondary-axis').value;
+            const tertiaryAxis = document.getElementById('pivot-tertiary-axis').value; // 内訳軸2追加
             const anomalyType = document.getElementById('pivot-anomaly-type').value; 
             const ratioBase = document.getElementById('pivot-ratio-base').value; 
 
             const axisLabels = { "defect_name": "不良・ロス名称", "machine_id": "号機", "model": "生産型番", "color": "色" };
             document.getElementById('th-pivot-primary').innerText = axisLabels[primaryAxis] || "主グループ";
-            document.getElementById('th-pivot-secondary').innerText = secondaryAxis === 'none' ? "-" : (axisLabels[secondaryAxis] || "内訳");
+            document.getElementById('th-pivot-secondary').innerText = secondaryAxis === 'none' ? "-" : (axisLabels[secondaryAxis] || "内訳1");
+            document.getElementById('th-pivot-tertiary').innerText = tertiaryAxis === 'none' ? "-" : (axisLabels[tertiaryAxis] || "内訳2");
 
             const pivotGroup = {};
             let totalAnomalyInPeriod = 0; 
@@ -866,11 +896,12 @@
                 
                 const pVal = rowObj[primaryAxis] || "不明";
                 const sVal = secondaryAxis === 'none' ? "" : (rowObj[secondaryAxis] || "不明");
+                const tVal = tertiaryAxis === 'none' ? "" : (rowObj[tertiaryAxis] || "不明");
                 
-                const key = `${pVal}__${sVal}`;
+                const key = `${pVal}__${sVal}__${tVal}`;
 
                 if (!pivotGroup[key]) {
-                    pivotGroup[key] = { primary: pVal, secondary: sVal, type: lossFlag ? "ロス" : "不良", w: 0, raw_m: m, raw_model: mod };
+                    pivotGroup[key] = { primary: pVal, secondary: sVal, tertiary: tVal, type: lossFlag ? "ロス" : "不良", w: 0, raw_m: m, raw_model: mod };
                 }
                 pivotGroup[key].w += bW;
                 totalSelectedGroupWeight += bW; 
@@ -886,6 +917,8 @@
                 currentDenomWeight = totalAnomalyInPeriod;
             } else if (ratioBase === 'PRODUCTION') {
                 currentDenomWeight = tg;
+            } else if (ratioBase === 'INPUT') {
+                currentDenomWeight = tg + tb; // 全体総投入量（生産量+不良+ロス）
             }
             const denomEl = document.getElementById('pivot-denom-weight');
             if (denomEl) {
@@ -916,6 +949,9 @@
                     }
                     ratioVal = prodWeightSource > 0 ? (d.w / (prodWeightSource * 1000)) * 100 : 0;
                     ratioLabel = "発生率";
+                } else if (ratioBase === 'INPUT') {
+                    ratioVal = (tg + tb) > 0 ? (d.w / (tg + tb)) * 100 : 0;
+                    ratioLabel = "投入比";
                 }
 
                 const barWidth = Math.min(100, (d.w / maxWeight) * 100);
@@ -926,6 +962,7 @@
                     <tr class="hover:bg-orange-50/50 transition-all font-bold">
                         <td class="p-4 text-dark fs-7">${d.primary}</td>
                         <td class="p-4 text-secondary text-xs">${d.secondary || "-"}</td>
+                        <td class="p-4 text-secondary text-xs">${d.tertiary || "-"}</td>
                         <td class="p-4 text-center">
                             <span class="border rounded-pill px-2.5 py-1 text-[9px] fw-bold ${badgeColor}">
                                 ${d.type}
@@ -968,9 +1005,12 @@
         container.classList.remove('hidden');
         
         let list = Object.values(data).filter(item => (item.g + item.b + item.l) > 0).map(item => {
-            const totalDenom = item.g + item.b + item.l;
+            const totalDenom = item.g + item.b + item.l; // これが投入量（生産量+不良+ロス）
+            const type = getModelType(item.color); // 型番タイプの特定
             return { 
                 ...item, 
+                totalInput: totalDenom, // 投入量
+                type: type,
                 y: totalDenom > 0 ? (item.g / totalDenom) * 100 : 0,
                 defectRate: totalDenom > 0 ? (item.b / totalDenom) * 100 : 0,
                 lossRate: totalDenom > 0 ? (item.l / totalDenom) * 100 : 0
@@ -981,6 +1021,12 @@
             list = list.filter(item => item.mod === worstModelFilter);
         }
 
+        // タイプ別の絞り込み
+        const typeFilterVal = document.getElementById('worst-model-type-filter').value;
+        if (typeFilterVal !== 'ALL') {
+            list = list.filter(item => item.type === typeFilterVal);
+        }
+
         list.sort((a, b) => {
             let valA = a[worstSortField];
             let valB = b[worstSortField];
@@ -989,7 +1035,7 @@
             return 0;
         });
 
-        const sortFields = ['y', 'defectRate', 'lossRate', 'g', 'b', 'l'];
+        const sortFields = ['y', 'defectRate', 'lossRate', 'totalInput', 'g', 'b', 'l'];
         sortFields.forEach(f => {
             const iconEl = document.getElementById(`sort-icon-${f}`);
             if (iconEl) {
@@ -1011,6 +1057,16 @@
         
         body.innerHTML = paged.map(i => {
             const target = cTargets[i.m] || cTargets['ALL'] || 95; const ok = i.y >= target;
+            
+            let typeBadge = '';
+            if (i.type === "リサイクル型") {
+                typeBadge = '<span class="px-2.5 py-0.5 text-[9px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">リサイクル型</span>';
+            } else if (i.type === "低線型") {
+                typeBadge = '<span class="px-2.5 py-0.5 text-[9px] font-black bg-purple-50 text-purple-700 border border-purple-200 rounded-full">低線型</span>';
+            } else {
+                typeBadge = '<span class="px-2.5 py-0.5 text-[9px] font-black bg-slate-100 text-slate-600 border border-slate-200 rounded-full">バージン型</span>';
+            }
+
             return `
                 <tr class="hover:bg-slate-50 font-bold">
                     <td class="p-3 border-b text-center text-sm ${ok ? 'text-emerald-600' : 'text-red-600'}">${i.y.toFixed(1)}%</td>
@@ -1018,7 +1074,9 @@
                     <td class="p-3 border-b text-center text-sm text-purple-600">${i.lossRate.toFixed(1)}%</td>
                     <td class="p-3 border-b">${i.m}</td>
                     <td class="p-3 border-b font-mono text-xs">${i.mod}</td>
-                    <td class="p-3 border-b text-right font-mono">${fmtW(i.g)}</td>
+                    <td class="p-3 border-b text-center">${typeBadge}</td>
+                    <td class="p-3 border-b text-right font-mono text-slate-800">${fmtW(i.totalInput)}</td>
+                    <td class="p-3 border-b text-right font-mono text-blue-600">${fmtW(i.g)}</td>
                     <td class="p-3 border-b text-right font-mono text-red-500">${fmtW(i.b)}</td>
                     <td class="p-3 border-b text-right font-mono text-purple-600">${fmtW(i.l)}</td>
                 </tr>
@@ -1027,7 +1085,7 @@
     }
 
     // ------------------------------------------------------------
-    // 📊 【大幅拡張】トレンド推移分析 集計・可視化エンジン
+    // 📊 トレンド推移分析 集計・可視化エンジン
     // ------------------------------------------------------------
     function renderTrend() {
         if (typeof Chart === 'undefined') return;
@@ -1244,7 +1302,6 @@
             }
         }
 
-        // グラフ用パラメータの構築
         const plotData = {
             labels: labels,
             yields: showYield ? seriesYield : null,
@@ -1262,9 +1319,6 @@
         renderTrendModelStats(modelStats, latestTarget, mc);
     }
 
-    // ------------------------------------------------------------
-    // 🎨 【新設】左右2軸 複合詳細折れ線・棒グラフ描画エンジン
-    // ------------------------------------------------------------
     function drawTrendChartAdvanced(plot) {
         if (typeof Chart === 'undefined') return;
         const ctx = document.getElementById('chart-trend').getContext('2d');
@@ -1272,7 +1326,6 @@
         
         const datasets = [];
         
-        // 1. 比率（左Y軸）折れ線系列
         if (plot.yields) {
             datasets.push({
                 label: '直行率 (%)',
@@ -1357,7 +1410,6 @@
             });
         }
         
-        // 2. 重量（右Y軸）棒グラフ系列
         if (plot.prodWeights) {
             datasets.push({
                 label: '良品生産重量 (kg)',
@@ -1516,6 +1568,8 @@
         worstCurrentPage = 1;
         const ws = document.getElementById('worst-model-filter');
         if(ws) ws.value = "";
+        const wt = document.getElementById('worst-model-type-filter');
+        if(wt) wt.value = "ALL";
         render(true);
     }
     
