@@ -1,5 +1,4 @@
 <div class="container-fluid p-0">
-  <!-- ヘッダー・検索設定エリア -->
   <div class="bg-white p-4 rounded-3 shadow-sm mb-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h3 class="text-lg font-bold border-l-4 border-blue-500 ps-3 mb-0">マーキング実績一覧（月次）</h3>
@@ -11,7 +10,7 @@
     <div class="row g-3 align-items-end">
       <div class="col-md-4">
         <label class="form-label small fw-bold text-slate-600">対象月</label>
-        <input type="month" id="analysis-month" class="form-control form-control-lg">
+        <input type="month" id="marking-analysis-month" class="form-control form-control-lg">
       </div>
       <div class="col-md-2">
         <button onclick="loadMarkingAnalysis()" class="btn btn-primary w-full py-2 fw-bold shadow-sm">
@@ -21,7 +20,6 @@
     </div>
   </div>
 
-  <!-- 結果表示エリア -->
   <div class="bg-white rounded-3 shadow-sm overflow-hidden min-h-[400px]">
     <div class="p-3 bg-slate-50 border-bottom d-flex justify-content-between align-items-center">
       <div class="d-flex align-items-center">
@@ -81,7 +79,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, '0');
-  const monthInput = document.getElementById('analysis-month');
+  // 💡 取得対象のIDを 'marking-analysis-month' に変更
+  const monthInput = document.getElementById('marking-analysis-month');
   if (monthInput) monthInput.value = `${year}-${month}`;
 });
 
@@ -89,7 +88,8 @@ document.addEventListener('DOMContentLoaded', () => {
  * 分析データの取得
  */
 function loadMarkingAnalysis() {
-  const monthStr = document.getElementById('analysis-month').value;
+  // 💡 取得対象のIDを 'marking-analysis-month' に変更
+  const monthStr = document.getElementById('marking-analysis-month').value;
   const tbody = document.getElementById('analysis-list-body');
   const btnDownload = document.getElementById('btn-download');
   
@@ -203,7 +203,8 @@ function renderAnalysisTable() {
 function downloadCSV() {
   if (analysisData.length === 0) return;
 
-  const monthStr = document.getElementById('analysis-month').value;
+  // 💡 取得対象のIDを 'marking-analysis-month' に変更
+  const monthStr = document.getElementById('marking-analysis-month').value;
   let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
   csvContent += "押出日付,型番,容器NO,マーキング本数\r\n";
   
@@ -220,4 +221,3 @@ function downloadCSV() {
   document.body.removeChild(link);
 }
 </script>
-```

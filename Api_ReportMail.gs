@@ -86,9 +86,9 @@ function assembleDailyReportData(date, shift, group) {
 }
 
 /**
- * 3. 完成したHTML日報メールを宛先へ送信
+ * 3. 完成したHTML日報メールを宛先へ送信（丸付けされたインライン画像デコード対応）
  */
-function sendFormattedEmail(to, cc, subject, bodyHtml) {
+function sendFormattedEmail(to, cc, subject, bodyHtml, inlineImagesPayload) {
   try {
     if (!to) throw new Error("送信宛先(To)が設定されていません。");
     const options = {
@@ -96,6 +96,19 @@ function sendFormattedEmail(to, cc, subject, bodyHtml) {
     };
     if (cc && cc.trim() !== "") {
       options.cc = cc.trim();
+    }
+    
+    // 💡 インライン丸付け断面図画像をデコードしてメールオプションにバインド
+    if (inlineImagesPayload && Object.keys(inlineImagesPayload).length > 0) {
+      const inlineImages = {};
+      for (const cid in inlineImagesPayload) {
+        const base64Data = inlineImagesPayload[cid]; // "data:image/png;base64,..."
+        const base64Image = base64Data.split(',')[1];
+        const decoded = Utilities.base64Decode(base64Image);
+        const blob = Utilities.newBlob(decoded, 'image/png', cid + '.png');
+        inlineImages[cid] = blob;
+      }
+      options.inlineImages = inlineImages;
     }
     
     GmailApp.sendEmail(to, subject, "押出課 操業日報配信", options);
@@ -219,6 +232,38 @@ function getTimeItemNameByCode_(code, dbName) {
   if (c === "14") return "停止作業";
   if (c === "25") return "故障トラブル";
   return "その他作業ロス";
+}
+
+/**
+ * 💡 ドライブフォルダから断面図（型番.png）を取得してBase64文字列として返却する内部関数
+ */
+function getSectionDrawingAsBase64_(modelName) {
+  try {
+    const folderId = PropertiesService.getScriptProperties().getProperty('SECTION_DRAWING_FOLDER_ID');
+    if (!folderId || folderId.trim() === "") return null;
+    
+    const folder = DriveApp.getFolderById(folderId.trim());
+    const cleanModel = String(modelName).trim().toUpperCase();
+    
+    // PNGファイルの検索
+    const filesPng = folder.getFilesByName(cleanModel + '.png');
+    if (filesPng.hasNext()) {
+      const file = filesPng.next();
+      const bytes = file.getBlob().getBytes();
+      return 'data:image/png;base64,' + Utilities.base64Encode(bytes);
+    }
+    
+    // JPEGファイルのフォールバック検索
+    const filesJpg = folder.getFilesByName(cleanModel + '.jpg');
+    if (filesJpg.hasNext()) {
+      const file = filesJpg.next();
+      const bytes = file.getBlob().getBytes();
+      return 'data:image/jpeg;base64,' + Utilities.base64Encode(bytes);
+    }
+  } catch (e) {
+    console.warn(`[断面図取得スキップ] 型番: ${modelName}, 理由: ` + e.toString());
+  }
+  return null;
 }
 
 /**
@@ -403,6 +448,7 @@ function getLdpMachineRecords_(date, shift) {
       b.Kataban AS model,
       MAX(b.Color) AS color,
       SUM(COALESCE(b.GoodQty, 0) * COALESCE(b.UnitWeight, 0) * COALESCE(b.RepresentativeLength, 0)) / 1000.0 AS production_weight,
+      SUM(COALESCE(b.GoodQty, 0)) AS production_qty, -- ★良品本数を集計
       MAX(curr_lc.last_model) AS last_model,
       MAX(curr_lc.last_color) AS last_color,
       MAX(prev_lc.prev_model) AS prev_model,
@@ -471,6 +517,7 @@ function getLdpMachineRecords_(date, shift) {
       models: [],
       colors: [],
       production_weight: 0,
+      production_qty: 0, // ★良品本数の初期化
       defect_weight: 0, // 純不良
       loss_weight: 0,   // ロス
       defects_top3: "",
@@ -478,7 +525,9 @@ function getLdpMachineRecords_(date, shift) {
       color_change: "",
       last_event: "",
       timeline_text: '<span class="text-slate-300">実績時間データなし</span>',
-      hide_machine: false
+      hide_machine: false,
+      has_major_defect: false, // 💡 100kg超え判定
+      section_drawing_base64: null // 💡 断面図データの格納先
     };
   });
 
@@ -502,6 +551,10 @@ function getLdpMachineRecords_(date, shift) {
       const pWeight = parseFloat(r.production_weight) || 0;
       results[m].production_weight += pWeight;
       totalGood += pWeight;
+
+      // ★良品本数を加算
+      const pQty = parseInt(r.production_qty, 10) || 0;
+      results[m].production_qty += pQty;
       
       const model = String(r.model || "").trim();
       if (model && !results[m].models.includes(model)) {
@@ -599,6 +652,19 @@ function getLdpMachineRecords_(date, shift) {
         if (sortedLoss.length > 0) {
           results[m].loss_top3 = `(${sortedLoss.join(', ')})`;
         }
+      }
+
+      // 💡 【重要変更】「ロス」の合計が100kgを超えても反応しないよう、チェック対象を「純不良（defectGroup）」のみに制限
+      let hasMajorDefect = false;
+      if (defectGroup[m]) {
+        hasMajorDefect = Object.values(defectGroup[m]).some(w => w >= 100);
+      }
+
+      if (hasMajorDefect && results[m].models.length > 0) {
+        results[m].has_major_defect = true;
+        // 代表する型番(先頭)をドライブ内から画像検索してBase64取得
+        const topModel = results[m].models[0];
+        results[m].section_drawing_base64 = getSectionDrawingAsBase64_(topModel);
       }
     });
 
