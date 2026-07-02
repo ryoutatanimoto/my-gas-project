@@ -15,7 +15,7 @@ function daily_sendReport() {
       "kimie.nakai@lixil.com", "norihiro.tanimoto@lixil.com", "jinya.igarashi@lixil.com",
       "daiki.sunahara@lixil.com", "masaru.sotoyama@lixil.com", "tomohiro.aoki@lixil.com",
       "keiiti.fujita@lixil.com", "shinsuke.sawada@lixil.com","ryouta.tanimoto@lixil.com",
-      "takehiko.makuzawa@lixil.com "
+      "takehiko.makuzawa@lixil.com ","mayu1.suzuki@lixil.com"
     ].join(",");
     // ------------------------------------------
 

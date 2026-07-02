@@ -1,4 +1,4 @@
-<!-- LIXIL 栗沢工場 押出実績モニタ コンポーネント (Final Version: UI & Trend Table Fix) -->
+<!-- LIXIL 栗沢工場 押出実績モニタ コンポーネント (Final Version: UI & Trend Table Fix with Defect Quick Search) -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
@@ -139,6 +139,25 @@
                 <!-- フィルタ並列配置 -->
                 <div class="flex flex-wrap items-center gap-3">
                     <div class="flex flex-col">
+                        <span class="text-[9px] font-black text-slate-400 mb-0.5">号機指定:</span>
+                        <select id="worst-machine-filter" onchange="worstCurrentPage = 1; render(false);" class="border-2 border-slate-100 rounded-lg px-2.5 py-1 text-xs font-bold outline-none bg-white">
+                            <option value="ALL">すべて表示</option>
+                            <option value="1">1号機</option>
+                            <option value="2">2号機</option>
+                            <option value="3">3号機</option>
+                            <option value="4">4号機</option>
+                            <option value="5">5号機</option>
+                            <option 年="6">6号機</option>
+                            <option value="7">7号機</option>
+                            <option value="8A">8A号機</option>
+                            <option value="8B">8B号機</option>
+                            <option value="9">9号機</option>
+                            <option value="10">10号機</option>
+                            <option value="11">11号機</option>
+                            <option value="12">12号機</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col">
                         <span class="text-[9px] font-black text-slate-400 mb-0.5">型番指定:</span>
                         <select id="worst-model-filter" onchange="onWorstModelFilterChange(this.value)" class="border-2 border-slate-100 rounded-lg px-2.5 py-1 text-xs font-bold outline-none bg-white"></select>
                     </div>
@@ -269,11 +288,12 @@
                 </div>
             </div>
 
-            <!-- 絞り込みフィルター -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+            <!-- 絞り込みフィルター (md:grid-cols-4に拡張して不良項目クイック検索を並列追加) -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 pt-2">
                 <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">対象号機フィルター</label><div id="filter-machine" class="flex flex-wrap gap-1.5 mt-2"></div></div>
                 <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">対象色フィルター</label><div id="filter-color" class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto custom-scroll mt-2"></div></div>
                 <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">型番でクイック検索</label><select id="filter-model-select" onchange="onModelChange(this.value)" class="w-full border-2 border-slate-100 rounded-xl px-4 py-2 text-sm font-bold bg-white mt-2 outline-none focus:border-orange-300"></select></div>
+                <div><label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">不良項目でクイック検索</label><select id="filter-defect-select" onchange="onDefectChange(this.value)" class="w-full border-2 border-slate-100 rounded-xl px-4 py-2 text-sm font-bold bg-white mt-2 outline-none focus:border-orange-300"></select></div>
             </div>
 
             <!-- 分析結果データグリッド -->
@@ -415,7 +435,7 @@
     let worstSortAsc = true;  // ワースト順 (昇順)
     const FIXED_MACHINES = ['1','2','3','4','5','6','7','8A','8B','9','10','11','12'];
     const PAGE_SIZE = 50;
-    let filterState = { machines: new Set(), colors: new Set(), modelSelected: "" };
+    let filterState = { machines: new Set(), colors: new Set(), modelSelected: "", defectSelected: "" };
     let isPerformanceCollapsed = true;
     let modalResolver = null;
 
@@ -575,67 +595,28 @@
         const furyouji = [];
         const jikanji = [];
         const targets = { 'ALL': 95.0, '1': 94.5, '2': 93.0, '4': 95.5, '8A': 96.0 };
-        const prices = { 'D101A': 120, 'E202B': 140, 'F909S': 110, 'A123S': 150 };
-        const recycleMaster = { 'D101A': 0.8, 'E202B': 0.5 };
+        const prices = { 'D101A': 120, 'E202B': 140, 'F909S': 110, 'A123S': 110 };
+        const recycleMaster = {};
 
-        const yStr = month.split('-')[0];
-        const mStr = month.split('-')[1];
-
-        for (let day = 1; day <= 31; day++) {
-            const dateStr = `${yStr}/${mStr}/${String(day).padStart(2, '0')}`;
-            FIXED_MACHINES.forEach(mac => {
-                if (mac !== '3' && mac !== '8B') {
-                    // デモ用の型番
-                    const modelCode = mac === '1' ? 'A123S' : mac === '2' ? 'E202B' : 'D101A';
-                    oshiji.push({
-                        "号機": mac,
-                        "押出日付": dateStr,
-                        "型番": modelCode,
-                        "定尺": 4.0,
-                        "単重": 1.2,
-                        "積載本数": 120,
-                        "色": mac === '1' ? 'A S' : mac === '2' ? 'B T' : 'WS',
-                        "副資材コード": modelCode
-                    });
-
-                    // 不良データ
-                    if (day % 3 === 0) {
-                        furyouji.push({
-                            "号機": mac,
-                            "押出日付": dateStr,
-                            "再生重量": mac === '2' ? 35.0 : 5.0,
-                            "廃棄重量": 2.0,
-                            "型番": modelCode,
-                            "不良名称": mac === '2' ? "気泡" : "キズ",
-                            "不良コード": "45"
-                        });
-                    }
-
-                    // ロスデータ
-                    if (day % 4 === 0) {
-                        furyouji.push({
-                            "号機": mac,
-                            "押出日付": dateStr,
-                            "再生重量": 15.0,
-                            "廃棄重量": 0.0,
-                            "型番": modelCode,
-                            "不良名称": "立上ﾛｽ",
-                            "不良コード": "00" 
-                        });
-                    }
-
-                    jikanji.push({
-                        "号機": mac,
-                        "押出日付": dateStr,
-                        "開始時刻": "08:00",
-                        "次開始時刻": "16:30",
-                        "時間項目コード": "00",
-                        "時間項目名": "押出"
-                    });
-                }
+        const sDate = new Date(month + "-01");
+        for (let i = 0; i < 15; i++) {
+            const d = new Date(sDate.getTime() + i * 24 * 60 * 60 * 1000);
+            const ds = d.toLocaleDateString('sv-SE').replace(/-/g, '/');
+            FIXED_MACHINES.forEach(m => {
+                oshiji.push({
+                    "号機": m, "押出日付": ds, "型番": "D101A", "定尺": 4000, "単重": 0.5, "積載本数": 100, "色": "WH", "副資材コード": "PAD101A"
+                });
+                furyouji.push({
+                    "号機": m, "押出日付": ds, "型番": "D101A", "不良コード": "45", "不良名称": "キズ", "再生重量": 15.0, "廃棄重量": 1.0
+                });
+                furyouji.push({
+                    "号機": m, "押出日付": ds, "型番": "D101A", "不良コード": "00", "不良名称": "立上ﾛｽ", "再生重量": 25.0, "廃棄重量": 0.0
+                });
+                jikanji.push({
+                    "号機": m, "押出日付": ds, "開始時刻": "08:00", "次開始時刻": "16:30", "時間項目コード": "00", "時間項目名": "押出"
+                });
             });
         }
-
         return { oshiji, furyouji, jikanji, targets, prices, recycleMaster };
     }
 
@@ -728,7 +709,7 @@
         const prevDefectVal = defectSelect ? defectSelect.value : "ALL";
         if (defectSelect) {
             defectSelect.innerHTML = `
-                <option value="ALL">全て (不良＋ロス合計)</option>
+                <option value="ALL">lazy (不良＋ロス合計)</option>
                 <option value="ONLY_DEFECT">不良全て (不良合計)</option>
                 <option value="ONLY_LOSS">ロス全て (ロス合計)</option>
             `;
@@ -871,23 +852,28 @@
             let totalSelectedGroupWeight = 0; 
 
             cF.forEach(r => {
-                const m = normalizeMachine(r["号機"]), mod = r["型番"], n = r["不良名称"] || "不明", bW = (parseFloat(r["再生重量"]) || 0) + (parseFloat(r["廃棄重量"]) || 0);
+                const m = normalizeMachine(r["号機"]);
+                const mod = String(r["型番"] || "").trim();
+                // 💡 【バグ解決】 r["不良名称"] の前後空白を完全に除去した上で判定・抽出を行います
+                const n = String(r["不良名称"] || "不明").trim();
+                const bW = (parseFloat(r["再生重量"]) || 0) + (parseFloat(r["廃棄重量"]) || 0);
                 const c = colMap[`${m}_${mod}`] || "不明"; 
                 const d = parseDate(r["押出日付"]);
                 const dCode = String(r["不良コード"] || "").trim();
 
-                const isLoss = dName => dName.indexOf('ロス') !== -1 || dName.indexOf('ﾛｽ') !== -1 || 
-                               ['00','01','02','03','10','11','20','21','22','30','31','32','33'].includes(dCode);
-
-                const lossFlag = isLoss(n);
+                // 💡 【最適化】 毎ループの関数生成を廃止し、直接論理式で評価してパフォーマンスを向上させます
+                const lossFlag = n.includes('ロス') || n.includes('ﾛｽ') || 
+                                 ['00','01','02','03','10','11','20','21','22','30','31','32','33'].includes(dCode);
 
                 if (d < tS || d > tE) return;
 
                 totalAnomalyInPeriod += bW;
 
+                // 💡 不良項目フィルター（filterState.defectSelected）の絞り込み処理
                 if ((filterState.machines.size > 0 && !filterState.machines.has(m)) || 
                     (filterState.colors.size > 0 && !filterState.colors.has(c)) || 
-                    (filterState.modelSelected && mod !== filterState.modelSelected)) return;
+                    (filterState.modelSelected && mod !== filterState.modelSelected) ||
+                    (filterState.defectSelected && n !== filterState.defectSelected)) return;
 
                 if (anomalyType === 'DEFECT' && lossFlag) return;
                 if (anomalyType === 'LOSS' && !lossFlag) return;
@@ -987,7 +973,7 @@
             });
             updatePaginationUI(pivotList.length);
         }
-        if(rebuildUI) buildFilterUI(cO);
+        if(rebuildUI) buildFilterUI(cO, cF); // 💡 不良項目抽出のために cF を追加
     }
 
     function updatePaginationUI(totalItems) {
@@ -1016,6 +1002,12 @@
                 lossRate: totalDenom > 0 ? (item.l / totalDenom) * 100 : 0
             };
         });
+
+        // 💡 追加：「号機」指定フィルタによる絞り込み処理
+        const machineFilterVal = document.getElementById('worst-machine-filter').value;
+        if (machineFilterVal !== 'ALL') {
+            list = list.filter(item => normalizeMachine(item.m) === normalizeMachine(machineFilterVal));
+        }
 
         if (worstModelFilter) {
             list = list.filter(item => item.mod === worstModelFilter);
@@ -1316,7 +1308,7 @@
         };
 
         drawTrendChartAdvanced(plotData);
-        renderTrendModelStats(modelStats, latestTarget, mc);
+        renderTrendModelStats(modelStats, targetVal, mc);
     }
 
     function drawTrendChartAdvanced(plot) {
@@ -1515,21 +1507,31 @@
         charts.main = new Chart(ctx, { type: 'bar', data: { labels: FIXED_MACHINES.map(m => m + "号機"), datasets: [{ label: '直行率 %', data: FIXED_MACHINES.map(m => (stats[m].g + stats[m].b > 0) ? (stats[m].g/(stats[m].g+stats[m].b))*100 : 0), backgroundColor: '#F60', borderRadius: 6 }, { label: '稼働率 %', data: FIXED_MACHINES.map(m => (stats[m].planned > 0) ? (stats[m].eff/stats[m].planned)*100 : 0), backgroundColor: '#3b82f6', borderRadius: 6 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' } } } } });
     }
 
-    function buildFilterUI(oshiji) {
+    function buildFilterUI(oshiji, furyouji) {
         document.getElementById('filter-machine').innerHTML = FIXED_MACHINES.map(m => `<span class="filter-chip ${filterState.machines.has(m)?'active':''}" onclick="toggleFilter('machines', '${m}')">${m}号機</span>`).join('');
-        const ms=new Set(), cs=new Set(); oshiji.forEach(r=>{ if(r["型番"]) ms.add(r["型番"]); if(r["色"]) cs.add(String(r["色"]).trim()); });
+        const ms=new Set(), cs=new Set(), ds=new Set(); 
+        oshiji.forEach(r=>{ if(r["型番"]) ms.add(String(r["型番"]).trim()); if(r["色"]) cs.add(String(r["色"]).trim()); });
+        furyouji.forEach(r=>{ if(r["不良名称"]) ds.add(String(r["不良名称"]).trim()); });
+
         document.getElementById('filter-color').innerHTML = Array.from(cs).sort().map(c => `<span class="filter-chip ${filterState.colors.has(c)?'active':''}" onclick="toggleFilter('colors', '${c}')">${c||'不明'}</span>`).join('');
         availableModels = Array.from(ms).sort();
+        const availableDefects = Array.from(ds).sort();
         
         const s = document.getElementById('filter-model-select'); 
         s.innerHTML = '<option value="">全ての型番を表示</option>' + availableModels.map(m=>`<option value="${m}" ${m===filterState.modelSelected?'selected':''}>${m}</option>`).join('');
         
         const ws = document.getElementById('worst-model-filter'); 
         ws.innerHTML = '<option value="">全ての型番を表示</option>' + availableModels.map(m=>`<option value="${m}" ${m===worstModelFilter?'selected':''}>${m}</option>`).join('');
+
+        const dSel = document.getElementById('filter-defect-select');
+        if (dSel) {
+            dSel.innerHTML = '<option value="">全ての不良項目を表示</option>' + availableDefects.map(d=>`<option value="${d}" ${d===filterState.defectSelected?'selected':''}>${d}</option>`).join('');
+        }
     }
 
     function toggleFilter(t, v) { if(filterState[t].has(v)) filterState[t].delete(v); else filterState[t].add(v); currentPage = 1; render(true); }
     function onModelChange(v) { filterState.modelSelected = v; currentPage = 1; render(true); }
+    function onDefectChange(v) { filterState.defectSelected = v; currentPage = 1; render(true); }
     
     function onWorstModelFilterChange(v) { 
         worstModelFilter = v; 
@@ -1555,9 +1557,12 @@
         filterState.machines.clear();
         filterState.colors.clear();
         filterState.modelSelected = "";
+        filterState.defectSelected = "";
         currentPage = 1;
         const s = document.getElementById('filter-model-select');
         if(s) s.value = "";
+        const d = document.getElementById('filter-defect-select');
+        if(d) d.value = "";
         render(true);
     }
 
@@ -1570,6 +1575,11 @@
         if(ws) ws.value = "";
         const wt = document.getElementById('worst-model-type-filter');
         if(wt) wt.value = "ALL";
+        
+        // 💡 追加：号機フィルタのリセット処理
+        const wm = document.getElementById('worst-machine-filter');
+        if(wm) wm.value = "ALL";
+        
         render(true);
     }
     
